@@ -123,11 +123,13 @@ checkArrivals = function() {
 			// if we're north of the final waypoint
 			if (p[3]+62 < navcoords[navF][1]) {
 				// routePlane(plane + ' c 4 s 300 c ' + navN)
+				p['turnDirection'] = '180'
 				p['approach'] = navAN
 				p['runway'] = runN
 				p['north'] = true
 			} else {
 				// routePlane(plane + ' c 4 s 300 c ' + navS)
+				p['turnDirection'] = '000'
 				p['approach'] = navAS
 				p['runway'] = runS
 				p['north'] = false
@@ -151,50 +153,20 @@ checkArrivals = function() {
 highlightLines = []
 
 calcLines = function() {
-	finalEN = 'CAVEB'
-	initialEN = 'SUMMT'
-	finalES = 'WEFOR'
-	initialES = 'PNUTT'
-	finalWN = 'ESFOR'
-	initialWN = 'COKEM'
-	finalWS = 'HEDEG'
-	initialWS = 'EQQ'
-	var waypoints = [finalEN, initialEN, finalES, initialES, finalWN, initialWN, finalWS, initialWS]
-	var waypointcoords = {}
+	lineX = 0
+	northY = 0
+	southY = 0
+
 	waypoints.forEach(function(waypoint) {
 		for (var i=0; i<G_arrNavObjects.length; i++) {
-			if (G_arrNavObjects[i][0] == waypoint) {
-				waypointcoords[waypoint] = [G_arrNavObjects[i][2], G_arrNavObjects[i][3]]
-				break
+			if (G_arrNavObjects[i][0] == 'SCARR') {
+				lineX = G_arrNavObjects[i][1]
+			} else if (G_arrNavObjects[i][0] == 'CAVEB') {
+				northY = G_arrNavObjects[i][2]
+			} else if (G_arrNavObjects[i][0] == 'WEFOR') {
+				southY = G_arrNavObjects[i][2]
 			}
 		}
-	})
-	mEN = (waypointcoords[finalEN][1]-waypointcoords[initialEN][1]) / (waypointcoords[finalEN][0]-waypointcoords[initialEN][0])
-	bEN = (waypointcoords[finalEN][1]+waypointcoords[initialEN][1]-mEN*(waypointcoords[finalEN][0]+waypointcoords[initialEN][0])) / 2
-
-	mES = (waypointcoords[finalES][1]-waypointcoords[initialES][1]) / (waypointcoords[finalES][0]-waypointcoords[initialES][0])
-	bES = (waypointcoords[finalES][1]+waypointcoords[initialES][1]-mES*(waypointcoords[finalES][0]+waypointcoords[initialES][0])) / 2
-
-	mWN = (waypointcoords[finalWN][1]-waypointcoords[initialWN][1]) / (waypointcoords[finalWN][0]-waypointcoords[initialWN][0])
-	bWN = (waypointcoords[finalWN][1]+waypointcoords[initialWN][1]-mWN*(waypointcoords[finalWN][0]+waypointcoords[initialWN][0])) / 2
-
-	mWS = (waypointcoords[finalWS][1]-waypointcoords[initialWS][1]) / (waypointcoords[finalWS][0]-waypointcoords[initialWS][0])
-	bWS = (waypointcoords[finalWS][1]+waypointcoords[initialWS][1]-mWS*(waypointcoords[finalWS][0]+waypointcoords[initialWS][0])) / 2
-
-
-
-
-	highlightLines.push({
-		x1: 0,
-		y1: mES * 0 + bES,
-		x2: window.innerWidth,
-		y2: mES * window.innerWidth + bES
-	})
-	highlightLines.push({
-		x1: 0,
-		y1: mWS * 0 + bWS,
-		x2: window.innerWidth,
-		y2: mWS * window.innerWidth + bWS
 	})
 }
 
@@ -211,22 +183,28 @@ spacePlanes2 = function() {
 	var queueS = []
 	planes.forEach(function(plane) {
 		var p = G_objPlanes[plane]
-		if (p[16]=='A' && p['leg'] == 'initial') {
-			// if we're close to our target
-			if (!!p.target && Math.sqrt(Math.pow(p[2]+24-p.target[0],2) + Math.pow(p[3]+62-p.target[1],2))<100) {
-				p['leg'] = 'approach'
-				delete p.target
-				routePlane(plane + ' c ' + p.approach)
-			} else {
-				// if we're north
-				if (p[3]+62 < navcoords['AT'][1]) {
-					var waypoint = currentFlow=='e' ? finalEN : finalWN
-					var dist = Math.sqrt(Math.pow(p[2]+24-navcoords[waypoint][0],2) + Math.pow(p[3]+62-navcoords[waypoint][1],2))
-					queueN.push({'plane': plane, 'dist': dist})
-				} else {
-					var waypoint = currentFlow=='e' ? finalES : finalWS
-					var dist = Math.sqrt(Math.pow(p[2]+24-navcoords[waypoint][0],2) + Math.pow(p[3]+62-navcoords[waypoint][1],2))
-					queueS.push({'plane': plane, 'dist': dist})
+		if (p[16]=='A') {
+			if (p.leg == 'initial') {
+				// if we're close to the line
+				if (Math.abs(p[2]+24 - lineX)<100) {
+					p.leg = 'queue'
+					delete p.target
+					routePlane(plane + ' c ' + p.turnDirection)
+				} else { // if we're on initial but not there yet
+					// if we're north
+					if (p.north) {
+						var waypoint = currentFlow=='e' ? finalEN : finalWN
+						var dist = Math.sqrt(Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-northY,2))
+						queueN.push({'plane': plane, 'dist': dist})
+					} else {
+						var waypoint = currentFlow=='e' ? finalES : finalWS
+						var dist = Math.sqrt(Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-southY,2))
+						queueS.push({'plane': plane, 'dist': dist})
+					}
+				}
+			} else if (p.leg == 'queue') {
+				if (Math.min(Math.abs(p[2]+62 - northY), Math.abs(p[2]+62 - southY)) < 10) {
+					routePlane(plane + ' c ' + p.approach)
 				}
 			}
 		}
