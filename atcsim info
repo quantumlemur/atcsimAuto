@@ -1,0 +1,24 @@
+1:
+2:  current x coordinate?
+3:  current y coordinate?
+4:  current altitude
+5:  current heading
+6:  current speed
+7:
+8:  cleared heading
+9:  cleared altitude
+10:  cleared speed
+11:  cleared nav
+12:
+13:  requested nav
+14:
+15:
+16:  status?  arrival/wait/takeoff
+
+
+
+
+217 878
+354 978
+
+dal1732 c 2 x
