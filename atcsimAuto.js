@@ -136,6 +136,7 @@ checkArrivals = function() {
 			}
 			p['final'] = navF
 			p['leg'] = 'initial'
+			p.high = true
 			routePlane(plane + ' c 5 s 300')
 		}
 	})
@@ -201,13 +202,22 @@ spacePlanes2 = function() {
 		var p = G_objPlanes[plane]
 		if (p[16]=='A') {
 			if (p.leg == 'queue' || p.leg == 'initial') {
-				if (Math.min(Math.sqrt(Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-northY,2)), Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-southY,2)) < 100) {
+				if (Math.min(Math.sqrt(Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-northY,2)), Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-southY,2)) < 70) {
 					p.leg = 'approach'
-					routePlane(plane + ' s 240 c 3 c ' + p.approach)
+					routePlane(plane + ' s 240 c ' + p.approach)
+					if (p.high) {
+						routePlane(plane + ' c 4')
+					} else {
+						routePlane(plane + ' c 3')
+					}
+					// for (var i=0; i<G_arrNavObjects.length; i++) {
+					// 	if (G_arrNavObjects[i] == p.waypoint) {
+					// 		delete G_arrNavObjects[i]
+					// 	}
+					// }
 				} else {
 					if (Math.abs(p[2]+24 - lineX) < 10) { // if we're close to the vertical queue line
 						p.leg = 'queue'
-						routePlane(plane + ' c 4')
 						setWaypoint(plane, lineX, p.north ? northY : southY)
 					} 
 					// if we're north
@@ -222,9 +232,14 @@ spacePlanes2 = function() {
 					}
 				}
 			} else if (p.leg == 'approach') {
-				if (Math.sqrt(Math.pow(p[2]+24 - navcoords[p.approach][0], 2) + Math.pow(p[3]+62 - navcoords[p.approach][1], 2)) < 50) {
+				if (Math.sqrt(Math.pow(p[2]+24 - navcoords[p.approach][0], 2) + Math.pow(p[3]+62 - navcoords[p.approach][1], 2)) < 20) {
 					p.leg = 'final'
-					routePlane(plane + ' c 2 c ' + p.final)
+					routePlane(plane + ' c ' + p.final)
+					if (p.high) {
+						routePlane(plane + ' c 3')
+					} else {
+						routePlane(plane + ' c 2')
+					}
 				}
 			}
 		}
@@ -245,7 +260,7 @@ spacePlanes2 = function() {
 			var y1 = p[3] + 62
 			var x0 = lineX
 			var y0 = northY
-			var desiredPathLength = frontPathLength + i*120
+			var desiredPathLength = frontPathLength + i*150
 			var diff = 0
 			var prevDiff = 9999999
 			var hasDecreased = false
@@ -257,14 +272,14 @@ spacePlanes2 = function() {
 				var dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
 				var dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
 				var pathLength = dist1 + dist2
-				diff = Math.abs(pathLength - desiredPathLength)
+				diff = pathLength - desiredPathLength
 				// if (i==1) {
 				// 	highlightPoints.push({uid:Math.random().toString(), r:diff/100, id:hasDecreased, x:xi, y:yi, fill:'blue'})
 				// }
-				if (diff > prevDiff) {
+				if (Math.abs(diff) > prevDiff) {
 					break
 				}
-				prevDiff = diff
+				prevDiff = Math.abs(diff)
 			}
 			if (p.leg == 'initial') {
 				setWaypoint(queueN[i].plane, xi, yi)
@@ -276,6 +291,15 @@ spacePlanes2 = function() {
 				routePlane(queueN[i].plane + ' s 150')
 			} else {
 				routePlane(queueN[i].plane + ' s 300')
+			}
+			if (i>0) {
+				if (G_objPlanes[queueN[i-1].plane].high) {
+					routePlane(queueN[i].plane + ' c 4')
+					G_objPlanes[queueN[i].plane].high = false
+				} else {
+					routePlane(queueN[i].plane + ' c 5')
+					G_objPlanes[queueN[i].plane].high = true
+				}
 			}
 			// highlightPoints.push({uid:Math.random().toString(), r:10, id:p.name, x:xi, y:yi, fill:'green'})
 			// highlightLines.push({x1:x1, y1:y1, x2:xi, y2:yi})
@@ -293,7 +317,7 @@ spacePlanes2 = function() {
 			var y1 = p[3] + 62
 			var x0 = lineX
 			var y0 = southY
-			var desiredPathLength = frontPathLength + i*120
+			var desiredPathLength = frontPathLength + i*150
 			var diff = 0
 			var prevDiff = 9999999
 			var hasDecreased = false
@@ -305,14 +329,14 @@ spacePlanes2 = function() {
 				var dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
 				var dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
 				var pathLength = dist1 + dist2
-				diff = Math.abs(pathLength - desiredPathLength)
+				diff = pathLength - desiredPathLength
 				// if (i==1) {
 				// 	highlightPoints.push({uid:Math.random().toString(), r:diff/100, id:hasDecreased, x:xi, y:yi, fill:'blue'})
 				// }
-				if (diff > prevDiff) {
+				if (Math.abs(diff) > prevDiff) {
 					break
 				}
-				prevDiff = diff
+				prevDiff = Math.abs(diff)
 			}
 			if (p.leg == 'initial') {
 				setWaypoint(queueS[i].plane, xi, yi)
@@ -324,6 +348,15 @@ spacePlanes2 = function() {
 				routePlane(queueS[i].plane + ' s 150')
 			} else {
 				routePlane(queueS[i].plane + ' s 300')
+			}
+			if (i>0) {
+				if (G_objPlanes[queueS[i-1].plane].high) {
+					routePlane(queueS[i].plane + ' c 4')
+					G_objPlanes[queueS[i].plane].high = false
+				} else {
+					routePlane(queueS[i].plane + ' c 5')
+					G_objPlanes[queueS[i].plane].high = true
+				}
 			}
 			// highlightPoints.push({uid:Math.random().toString(), r:10, id:p.name, x:xi, y:yi, fill:'green'})
 		}
