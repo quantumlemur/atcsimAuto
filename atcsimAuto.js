@@ -164,7 +164,7 @@ calcLines = function() {
 			lineX = G_arrNavObjects[i][2]
 		} else if (G_arrNavObjects[i][0] == 'CAVEB') {
 			northY = G_arrNavObjects[i][3]
-		} else if (G_arrNavObjects[i][0] == 'WEFOR') {
+		} else if (G_arrNavObjects[i][0] == 'HEDEG') {
 			southY = G_arrNavObjects[i][3]
 		} else if (G_arrNavObjects[i][0] == 'LUCKK') {
 			maxY = G_arrNavObjects[i][3]
@@ -201,14 +201,11 @@ spacePlanes2 = function() {
 		var p = G_objPlanes[plane]
 		if (p[16]=='A') {
 			if (p.leg == 'initial') {
-				// if we're close to the vertical queue line
-				if (Math.abs(p[2]+24 - lineX) < 5) {
-					// p.leg = 'queue'
-					// delete p.target
-					// routePlane(plane + ' c 4 c ' + p.turnDirection)
-				} else if (Math.min(Math.abs(p[3]+62 - northY), Math.abs(p[3]+62 - southY)) < 20) {
+				if (Math.min(Math.sqrt(Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-northY,2)), Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-southY,2)) < 100) {
 					p.leg = 'approach'
-					routePlane(plane + ' c 3 c ' + p.approach)
+					routePlane(plane + ' s 240 c 3 c ' + p.approach)
+				} else if (Math.abs(p[2]+24 - lineX) < 10) { // if we're close to the vertical queue line
+					routePlane(plane + ' c 4 c ' + p.turnDirection)
 				} else { // if we're on initial but not there yet
 					// if we're north
 					if (p.north) {
@@ -222,7 +219,7 @@ spacePlanes2 = function() {
 					}
 				}
 			} else if (p.leg == 'approach') {
-				if (Math.sqrt(Math.pow(p[2]+24 - navcoords[p.approach][0], 2) + Math.pow(p[3]+62 - navcoords[p.approach][1], 2)) < 20) {
+				if (Math.sqrt(Math.pow(p[2]+24 - navcoords[p.approach][0], 2) + Math.pow(p[3]+62 - navcoords[p.approach][1], 2)) < 50) {
 					p.leg = 'final'
 					routePlane(plane + ' c 2 c ' + p.final)
 				}
@@ -236,90 +233,91 @@ spacePlanes2 = function() {
 	highlightLines = []
 
 	// NORTH
-	var frontPathLength = queueN[0].dist
-	for (var i=0; i<queueN.length; i++) {
-		var p = G_objPlanes[queueN[i].plane]
-		var x1 = p[2] + 24
-		var y1 = p[3] + 62
-		var x0 = lineX
-		var y0 = northY
-		var desiredPathLength = frontPathLength + i*150
-		var prevDiff = 9999999
-		var hasDecreased = false
-		var xi = 0
-		var yi = 0
-		for (var y=northY; y>minY; y-=10) {
-			xi = lineX
-			yi = y
-			var dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
-			var dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
-			var pathLength = dist1 + dist2
-			var diff = Math.abs(pathLength - desiredPathLength)
-			// if (i==1) {
-			// 	highlightPoints.push({uid:Math.random().toString(), r:diff/100, id:hasDecreased, x:xi, y:yi, fill:'blue'})
-			// }
-			if (diff > prevDiff) {
-				break
+	if (queueN.length > 0) {
+		var frontPathLength = queueN[0].dist
+		for (var i=0; i<queueN.length; i++) {
+			var p = G_objPlanes[queueN[i].plane]
+			p.sequence = i
+			var x1 = p[2] + 24
+			var y1 = p[3] + 62
+			var x0 = lineX
+			var y0 = northY
+			var desiredPathLength = frontPathLength + i*100
+			var prevDiff = 9999999
+			var hasDecreased = false
+			var xi = 0
+			var yi = 0
+			for (var y=northY; y>minY+100; y-=10) {
+				xi = lineX
+				yi = y
+				var dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
+				var dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
+				var pathLength = dist1 + dist2
+				var diff = Math.abs(pathLength - desiredPathLength)
+				// if (i==1) {
+				// 	highlightPoints.push({uid:Math.random().toString(), r:diff/100, id:hasDecreased, x:xi, y:yi, fill:'blue'})
+				// }
+				if (diff > prevDiff) {
+					break
+				}
+				prevDiff = diff
 			}
-			prevDiff = diff
-		}
-		if (!!p.waypoint) {
-			p.waypoint[2] = xi
-			p.waypoint[3] = yi
-		} else {
-			var temp = G_arrNavObjects.push([queueN[i].plane, 2, xi, yi])
-			p.waypoint = G_arrNavObjects[temp-1]
-		}
-		if (p[11] != queueN[i].plane) {
-			routePlane(queueN[i].plane + ' c 5 c ' + queueN[i].plane)
+			if (!!p.waypoint) {
+				p.waypoint[2] = xi
+				p.waypoint[3] = yi
+			} else {
+				var temp = G_arrNavObjects.push([queueN[i].plane, 2, xi, yi])
+				p.waypoint = G_arrNavObjects[temp-1]
+			}
+			routePlane(queueN[i].plane + ' s 300 c 5 c ' + queueN[i].plane)
 			p.leg = 'initial'
+			// highlightPoints.push({uid:Math.random().toString(), r:10, id:p.name, x:xi, y:yi, fill:'green'})
+			// highlightLines.push({x1:x1, y1:y1, x2:xi, y2:yi})
 		}
-		// highlightPoints.push({uid:Math.random().toString(), r:10, id:p.name, x:xi, y:yi, fill:'green'})
-		// highlightLines.push({x1:x1, y1:y1, x2:xi, y2:yi})
 	}
 
 
 	// SOUTH
-	var frontPathLength = queueS[0].dist
-	for (var i=0; i<queueS.length; i++) {
-		var p = G_objPlanes[queueS[i].plane]
-		var x1 = p[2] + 24
-		var y1 = p[3] + 62
-		var x0 = lineX
-		var y0 = southY
-		var desiredPathLength = frontPathLength + i*150
-		var prevDiff = 9999999
-		var hasDecreased = false
-		var xi = 0
-		var yi = 0
-		for (var y=southY; y<maxY; y+=10) {
-			xi = lineX
-			yi = y
-			var dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
-			var dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
-			var pathLength = dist1 + dist2
-			var diff = Math.abs(pathLength - desiredPathLength)
-			// if (i==1) {
-			// 	highlightPoints.push({uid:Math.random().toString(), r:diff/100, id:hasDecreased, x:xi, y:yi, fill:'blue'})
-			// }
-			if (diff > prevDiff) {
-				break
+	if (queueS.length > 0) {
+		var frontPathLength = queueS[0].dist
+		for (var i=0; i<queueS.length; i++) {
+			var p = G_objPlanes[queueS[i].plane]
+			p.sequence = i
+			var x1 = p[2] + 24
+			var y1 = p[3] + 62
+			var x0 = lineX
+			var y0 = southY
+			var desiredPathLength = frontPathLength + i*100
+			var prevDiff = 9999999
+			var hasDecreased = false
+			var xi = 0
+			var yi = 0
+			for (var y=southY; y<maxY-100; y+=10) {
+				xi = lineX
+				yi = y
+				var dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
+				var dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
+				var pathLength = dist1 + dist2
+				var diff = Math.abs(pathLength - desiredPathLength)
+				// if (i==1) {
+				// 	highlightPoints.push({uid:Math.random().toString(), r:diff/100, id:hasDecreased, x:xi, y:yi, fill:'blue'})
+				// }
+				if (diff > prevDiff) {
+					break
+				}
+				prevDiff = diff
 			}
-			prevDiff = diff
-		}
-		if (!!p.waypoint) {
-			p.waypoint[2] = xi
-			p.waypoint[3] = yi
-		} else {
-			var temp = G_arrNavObjects.push([queueS[i].plane, 2, xi, yi])
-			p.waypoint = G_arrNavObjects[temp-1]
-		}
-		if (p[11] != queueS[i].plane) {
-			routePlane(queueS[i].plane + ' c 5 c ' + queueS[i].plane)
+			if (!!p.waypoint) {
+				p.waypoint[2] = xi
+				p.waypoint[3] = yi
+			} else {
+				var temp = G_arrNavObjects.push([queueS[i].plane, 2, xi, yi])
+				p.waypoint = G_arrNavObjects[temp-1]
+			}
+			routePlane(queueS[i].plane + ' s 300 c 5 c ' + queueS[i].plane)
 			p.leg = 'initial'
+			// highlightPoints.push({uid:Math.random().toString(), r:10, id:p.name, x:xi, y:yi, fill:'green'})
 		}
-		// highlightPoints.push({uid:Math.random().toString(), r:10, id:p.name, x:xi, y:yi, fill:'green'})
-		highlightLines.push({x1:x1, y1:y1, x2:xi, y2:yi})
 	}
 }
 
@@ -427,8 +425,8 @@ update = function() {
 			}
 			return 0
 		})
-	// planes.selectAll('text')
-	// 	.text(function(d) { return !!d['leg'] && d['leg']!='landing' ? d.sequence + ' navdst: ' + Math.round(d.dist) + '  des: ' + d.desired + ' act: ' + Math.round(d.dist-d.firstDist) : '' })
+	planes.selectAll('text')
+		.text(function(d) { return !!d.leg && d.leg=='initial' ? d.sequence : '' })
 
 	// create new objects
 	planes.enter()
