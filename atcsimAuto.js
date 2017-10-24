@@ -19,7 +19,7 @@ try {
 
 
 // initial North, initial South, east flow North, east flow South, east flow Final, west flow North, west flow South, west flow Final
-navs = ['DOB', 'JHH', 'WETWO', 'WEONE', 'AT', 'ESFOR', 'HEDEG', 'BR', '8L', '9R', '26R', '27L']
+navs = ['DOB', 'JHH', 'CAVEB', 'WEFOR', 'AT', 'ESFOR', 'HEDEG', 'BR', '8L', '9R', '26R', '27L']
 navcoords = {}
 currentFlow = intWind<180 ? 'e' : 'w'
 
@@ -93,7 +93,7 @@ checkDepartures = function() {
 
 
 checkFlow = function() {
-	if ((currentFlow=='w' && intWind<150) || (currentFlow=='e' && intWind>210)) {
+	if ((currentFlow=='w' && intWind<150 && intWind>30) || (currentFlow=='e' && intWind>210 && intWind<330)) {
 		currentFlow = currentFlow=='e' ? 'w' : 'e'
 		var planes = Object.keys(G_objPlanes)
 		planes.forEach(function(plane) {
@@ -187,9 +187,24 @@ setWaypoint = function(plane, x, y) {
 		var temp = G_arrNavObjects.push([plane, 2, x, y])
 		p.waypoint = G_arrNavObjects[temp-1]
 	}
-	routePlane(plane + ' c ' + plane)
+	if (p[11] != plane) {
+		routePlane(plane + ' c ' + plane)
+	}
 }
 
+setAltitude = function(plane, alt) {
+	var p = G_objPlanes[plane]
+	if (p[9] != alt*1000) {
+		routePlane(plane + ' c ' + alt + ' x')
+	}
+}
+
+setSpeed= function(plane, speed) {
+	var p = G_objPlanes[plane]
+	if (p[10] != speed) {
+		routePlane(plane + ' s ' + speed)
+	}
+}
 
 highlightPoints = []
 
@@ -205,12 +220,9 @@ spacePlanes2 = function() {
 			if (p.leg == 'queue' || p.leg == 'initial') {
 				if (Math.min(Math.sqrt(Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-northY,2)), Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-southY,2)) < 100) {
 					p.leg = 'approach'
-					routePlane(plane + ' s 240 c ' + p.approach)
-					if (p.high) {
-						routePlane(plane + ' c 4 x')
-					} else {
-						routePlane(plane + ' c 3 x')
-					}
+					routePlane(plane + ' c ' + p.approach)
+					setSpeed(plane, 240)
+					setAltitude(plane, p.high ? 4 : 3)
 					// for (var i=0; i<G_arrNavObjects.length; i++) {
 					// 	if (G_arrNavObjects[i] == p.waypoint) {
 					// 		delete G_arrNavObjects[i]
@@ -236,11 +248,7 @@ spacePlanes2 = function() {
 				if (Math.sqrt(Math.pow(p[2]+24 - navcoords[p.approach][0], 2) + Math.pow(p[3]+62 - navcoords[p.approach][1], 2)) < 20) {
 					p.leg = 'final'
 					routePlane(plane + ' c ' + p.final)
-					if (p.high) {
-						routePlane(plane + ' c 3 x')
-					} else {
-						routePlane(plane + ' c 2 x')
-					}
+					setAltitude(plane, p.high ? 3 : 2)
 				}
 			}
 		}
@@ -265,42 +273,49 @@ spacePlanes2 = function() {
 			var diff = 0
 			var prevDiff = 9999999
 			var hasDecreased = false
-			var xi = 0
-			var yi = 0
-			for (var y=northY; y>minY+100; y-=10) {
-				xi = lineX
-				yi = y
-				var dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
-				var dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
-				var pathLength = dist1 + dist2
-				diff = pathLength - desiredPathLength
-				// if (i==1) {
-				// 	highlightPoints.push({uid:Math.random().toString(), r:diff/100, id:hasDecreased, x:xi, y:yi, fill:'blue'})
-				// }
-				if (Math.abs(diff) > prevDiff) {
-					break
-				}
-				prevDiff = Math.abs(diff)
-			}
+			var xi = lineX
+			var yi = northY
+			var dist1 = 0
+			var dist2 = 0
+			var pathLength = 0
 			if (p.leg == 'initial') {
+				for (var y=northY; y>minY+100; y-=10) {
+					yi = y
+					dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
+					dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
+					pathLength = dist1 + dist2
+					diff = pathLength - desiredPathLength
+					// if (i==1) {
+					// 	highlightPoints.push({uid:Math.random().toString(), r:diff/100, id:hasDecreased, x:xi, y:yi, fill:'blue'})
+					// }
+					if (Math.abs(diff) > prevDiff) {
+						break
+					}
+					prevDiff = Math.abs(diff)
+				}
 				setWaypoint(queueN[i].plane, xi, yi)
+			} else {
+				dist1 = 0
+				dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
+				pathLength = dist1 + dist2
+				diff = pathLength - desiredPathLength
 			}
 			p.diff = diff
+			p.dist1 = dist1
+			p.dist2 = dist2
+			p.pathLength = pathLength
+			p.desiredPathLength = desiredPathLength
 			if (diff > 50) {
-				routePlane(queueN[i].plane + ' s 450')
+				setSpeed(queueN[i].plane, 450)
 			} else if (diff < -50) {
-				routePlane(queueN[i].plane + ' s 150')
+				setSpeed(queueN[i].plane, 150)
 			} else {
-				routePlane(queueN[i].plane + ' s 300')
+				setSpeed(queueN[i].plane, 300)
 			}
 			if (i>0) {
-				if (G_objPlanes[queueN[i-1].plane].high) {
-					routePlane(queueN[i].plane + ' c 4 x')
-					G_objPlanes[queueN[i].plane].high = false
-				} else {
-					routePlane(queueN[i].plane + ' c 5 x')
-					G_objPlanes[queueN[i].plane].high = true
-				}
+				var prevHigh = G_objPlanes[queueN[i-1].plane].high
+				setAltitude(queueN[i].plane, prevHigh ? 4 : 5)
+				G_objPlanes[queueN[i].plane].high = !prevHigh
 			}
 			// highlightPoints.push({uid:Math.random().toString(), r:10, id:p.name, x:xi, y:yi, fill:'green'})
 			// highlightLines.push({x1:x1, y1:y1, x2:xi, y2:yi})
@@ -322,42 +337,49 @@ spacePlanes2 = function() {
 			var diff = 0
 			var prevDiff = 9999999
 			var hasDecreased = false
-			var xi = 0
-			var yi = 0
-			for (var y=southY; y<maxY-100; y+=10) {
-				xi = lineX
-				yi = y
-				var dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
-				var dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
-				var pathLength = dist1 + dist2
-				diff = pathLength - desiredPathLength
-				// if (i==1) {
-				// 	highlightPoints.push({uid:Math.random().toString(), r:diff/100, id:hasDecreased, x:xi, y:yi, fill:'blue'})
-				// }
-				if (Math.abs(diff) > prevDiff) {
-					break
-				}
-				prevDiff = Math.abs(diff)
-			}
+			var xi = lineX
+			var yi = southY
+			var dist1 = 0
+			var dist2 = 0
+			var pathLength = 0
 			if (p.leg == 'initial') {
+				for (var y=southY; y<maxY-100; y+=10) {
+					yi = y
+					dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
+					dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
+					pathLength = dist1 + dist2
+					diff = pathLength - desiredPathLength
+					// if (i==1) {
+					// 	highlightPoints.push({uid:Math.random().toString(), r:diff/100, id:hasDecreased, x:xi, y:yi, fill:'blue'})
+					// }
+					if (Math.abs(diff) > prevDiff) {
+						break
+					}
+					prevDiff = Math.abs(diff)
+				}
 				setWaypoint(queueS[i].plane, xi, yi)
+			} else {
+				dist1 = 0
+				dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
+				pathLength = dist1 + dist2
+				diff = pathLength - desiredPathLength
 			}
 			p.diff = diff
+			p.dist1 = dist1
+			p.dist2 = dist2
+			p.pathLength = pathLength
+			p.desiredPathLength = desiredPathLength
 			if (diff > 50) {
-				routePlane(queueS[i].plane + ' s 450')
+				setSpeed(queueS[i].plane, 450)
 			} else if (diff < -50) {
-				routePlane(queueS[i].plane + ' s 150')
+				setSpeed(queueS[i].plane, 150)
 			} else {
-				routePlane(queueS[i].plane + ' s 300')
+				setSpeed(queueS[i].plane, 300)
 			}
 			if (i>0) {
-				if (G_objPlanes[queueS[i-1].plane].high) {
-					routePlane(queueS[i].plane + ' c 4 x')
-					G_objPlanes[queueS[i].plane].high = false
-				} else {
-					routePlane(queueS[i].plane + ' c 5 x')
-					G_objPlanes[queueS[i].plane].high = true
-				}
+				var prevHigh = G_objPlanes[queueS[i-1].plane].high
+				setAltitude(queueS[i].plane, prevHigh ? 4 : 5)
+				G_objPlanes[queueS[i].plane].high = !prevHigh
 			}
 			// highlightPoints.push({uid:Math.random().toString(), r:10, id:p.name, x:xi, y:yi, fill:'green'})
 		}
@@ -462,7 +484,7 @@ update = function() {
 			return 0
 		})
 	planes.selectAll('text')
-		.text(function(d) { return !!d.sequence ? 'seq: ' + d.sequence + '  diff: ' + Math.round(d.diff) : '' })
+		.text(function(d) { return !!d.sequence ? '#' + d.sequence + ' | diff: ' + Math.round(d.diff) : '' })
 
 	// create new objects
 	planes.enter()
