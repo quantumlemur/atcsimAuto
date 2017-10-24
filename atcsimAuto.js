@@ -81,7 +81,7 @@ checkDepartures = function() {
 	// if the taking off plane is above 3000ft, then route him
 	planes.forEach(function(plane) {
 		var p = G_objPlanes[plane]
-		if (p[16] == 'T' && p[4] > 5000) {
+		if (p[16] == 'T' && p[4] > 6000) {
 			p['status'] = 'en route'
 			var req = G_arrNavObjects[p[13]][0]
 			if (p[11] != req) {
@@ -223,13 +223,8 @@ spacePlanes2 = function() {
 					routePlane(plane + ' c ' + p.approach)
 					setSpeed(plane, 240)
 					setAltitude(plane, p.high ? 4 : 3)
-					// for (var i=0; i<G_arrNavObjects.length; i++) {
-					// 	if (G_arrNavObjects[i] == p.waypoint) {
-					// 		delete G_arrNavObjects[i]
-					// 	}
-					// }
 				} else {
-					if (Math.abs(p[2]+24 - lineX) < 10) { // if we're close to the vertical queue line
+					if (Math.abs(p[2]+24 - lineX) < 20) { // if we're close to the vertical queue line
 						p.leg = 'queue'
 						setWaypoint(plane, lineX, p.north ? northY : southY)
 					} 
@@ -269,7 +264,7 @@ spacePlanes2 = function() {
 			var y1 = p[3] + 62
 			var x0 = lineX
 			var y0 = northY
-			var desiredPathLength = frontPathLength + i*150
+			var desiredPathLength = frontPathLength + i*100
 			var diff = 0
 			var prevDiff = 9999999
 			var hasDecreased = false
@@ -308,13 +303,13 @@ spacePlanes2 = function() {
 			if (diff > 50) {
 				setSpeed(queueN[i].plane, 450)
 			} else if (diff < -50) {
-				setSpeed(queueN[i].plane, 150)
+				setSpeed(queueN[i].plane, 160)
 			} else {
 				setSpeed(queueN[i].plane, 300)
 			}
 			if (i>0) {
 				var prevHigh = G_objPlanes[queueN[i-1].plane].high
-				setAltitude(queueN[i].plane, prevHigh ? 4 : 5)
+				setAltitude(queueN[i].plane, prevHigh ? 5 : 6)
 				G_objPlanes[queueN[i].plane].high = !prevHigh
 			}
 			// highlightPoints.push({uid:Math.random().toString(), r:10, id:p.name, x:xi, y:yi, fill:'green'})
@@ -333,7 +328,7 @@ spacePlanes2 = function() {
 			var y1 = p[3] + 62
 			var x0 = lineX
 			var y0 = southY
-			var desiredPathLength = frontPathLength + i*150
+			var desiredPathLength = frontPathLength + i*100
 			var diff = 0
 			var prevDiff = 9999999
 			var hasDecreased = false
@@ -372,20 +367,20 @@ spacePlanes2 = function() {
 			if (diff > 50) {
 				setSpeed(queueS[i].plane, 450)
 			} else if (diff < -50) {
-				setSpeed(queueS[i].plane, 150)
+				setSpeed(queueS[i].plane, 160)
 			} else {
 				setSpeed(queueS[i].plane, 300)
 			}
 			if (i>0) {
 				var prevHigh = G_objPlanes[queueS[i-1].plane].high
-				setAltitude(queueS[i].plane, prevHigh ? 4 : 5)
+				setAltitude(queueS[i].plane, prevHigh ? 5 : 6)
 				G_objPlanes[queueS[i].plane].high = !prevHigh
 			}
 			// highlightPoints.push({uid:Math.random().toString(), r:10, id:p.name, x:xi, y:yi, fill:'green'})
 		}
 	}
 
-
+	// now space the places that are on the downwind leg
 	var waypoints = [navs[0], navs[1], navs[2], navs[3], navs[5], navs[6]]
 	for (var w=0; w<waypoints.length; w++) {
 		var waypoint = waypoints[w]
@@ -416,17 +411,11 @@ spacePlanes2 = function() {
 			G_objPlanes[p.plane].firstDist = queue[0].dist
 			G_objPlanes[p.plane].diff = diff
 			if (diff > 50) {
-				if (G_objPlanes[p.plane][10] != 400) {
-					routePlane(p.plane + ' s 400')
-				}
+				setSpeed(p.plane, 300)
 			} else if (diff < -50) {
-				if (G_objPlanes[p.plane][10] != 160) {
-					routePlane(p.plane + ' s 160')
-				}
+				setSpeed(p.plane, 160)
 			} else {
-				if (G_objPlanes[p.plane][10] != 240) {
-					routePlane(p.plane + ' s 240')
-				}
+				setSpeed(p.plane, 240)
 			}
 		}
 	}
@@ -557,6 +546,3 @@ departureInterval = setInterval(checkDepartures, 1000)
 arrivalInterval = setInterval(checkArrivals, 1000)
 spaceInterval = setInterval(spacePlanes2, 1000)
 updateInterval = setInterval(update, 200)
-
-
-// solve((cos(a)-cos(t))*(y0-y1-d*sin(t))=(sin(a)-sin(t))*(x1-x0-d*cos(t)),a)
