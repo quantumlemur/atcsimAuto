@@ -218,7 +218,7 @@ spacePlanes2 = function() {
 		var p = G_objPlanes[plane]
 		if (p[16]=='A') {
 			if (p.leg == 'queue' || p.leg == 'initial') {
-				if (Math.min(Math.sqrt(Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-northY,2)), Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-southY,2)) < 100) {
+				if (Math.min(Math.sqrt(Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-northY,2)), Math.sqrt(Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-southY,2))) < 50) {
 					p.leg = 'approach'
 					routePlane(plane + ' c ' + p.approach)
 					setSpeed(plane, 240)
