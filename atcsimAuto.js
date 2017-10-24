@@ -1,3 +1,40 @@
+// // ATLANTA
+
+// // initial North, initial South, east flow North, east flow South, east flow Final, west flow North, west flow South, west flow Final
+// navs = ['DOB', 'JHH', 'CAVEB', 'WEFOR', 'AT', 'ESFOR', 'HEDEG', 'BR', '8L', '9R', '26R', '27L']
+
+// runwayNE = '8l'
+// runwaySE = '9r'
+// runwayNW = '26r'
+// runwaySW = '27l'
+
+// southmostWP = 'LUCKK'
+// northLine = 'FT'
+// southLine = 'HEDEG'
+// midLine = 'SCARR'
+
+
+
+// CHICAGO O'HARE
+
+// initial North, initial South, east flow North, east flow South, east flow Final, west flow North, west flow South, west flow Final
+navs = ['OBK', 'HK', 'BAMBB', 'POSSM', 'ME', 'HIMGO', 'TONIE', 'TAFFS', '9L', '10R', '27R', '28L']
+
+runwayNE = '9L'
+runwaySE = '10R'
+runwayNW = '27R'
+runwaySW = '28L'
+
+southmostWP = 'ACITO'
+northLine = 'KURKK'
+southLine = 'AUDRE'
+midLine = 'REKKS'
+
+
+
+
+
+
 function dynamicallyLoadScript(url) {
     var script = document.createElement("script"); // Make a script DOM node
     script.src = url; // Set it's src to the provided URL
@@ -17,9 +54,6 @@ try {
 
 }
 
-
-// initial North, initial South, east flow North, east flow South, east flow Final, west flow North, west flow South, west flow Final
-navs = ['DOB', 'JHH', 'CAVEB', 'WEFOR', 'AT', 'ESFOR', 'HEDEG', 'BR', '8L', '9R', '26R', '27L']
 navcoords = {}
 currentFlow = intWind<180 ? 'e' : 'w'
 
@@ -113,8 +147,8 @@ checkArrivals = function() {
 	var navAN = currentFlow=='e' ? navs[2] : navs[5]
 	var navAS = currentFlow=='e' ? navs[3] : navs[6]
 	var navF = currentFlow=='e' ? navs[4] : navs[7]
-	var runN = currentFlow=='e' ? '8l' : '26r'
-	var runS = currentFlow=='e' ? '9r' : '27l'
+	var runN = currentFlow=='e' ? runwayNE : runwayNW
+	var runS = currentFlow=='e' ? runwaySE : runwaySW
 
 	// route the unrouted planes
 	planes.forEach(function(plane) {
@@ -163,13 +197,13 @@ calcLines = function() {
 	minY = 0
 
 	for (var i=0; i<G_arrNavObjects.length; i++) {
-		if (G_arrNavObjects[i][0] == 'SCARR') {
+		if (G_arrNavObjects[i][0] == midLine) {
 			lineX = G_arrNavObjects[i][2]
-		} else if (G_arrNavObjects[i][0] == 'FT') {
+		} else if (G_arrNavObjects[i][0] == northLine) {
 			northY = G_arrNavObjects[i][3]
-		} else if (G_arrNavObjects[i][0] == 'HEDEG') {
+		} else if (G_arrNavObjects[i][0] == southLine) {
 			southY = G_arrNavObjects[i][3]
-		} else if (G_arrNavObjects[i][0] == 'LUCKK') {
+		} else if (G_arrNavObjects[i][0] == southmostWP) {
 			maxY = G_arrNavObjects[i][3]
 		}
 	}
@@ -473,7 +507,7 @@ update = function() {
 			return 0
 		})
 	planes.selectAll('text')
-		.text(function(d) { return !!d.sequence ? '#' + d.sequence + ' | diff: ' + Math.round(d.diff) : '' })
+		.text(function(d) { return !!d.sequence ? '#' + d.sequence + ' | diff: ' + Math.round(-d.diff) : '' })
 
 	// create new objects
 	planes.enter()
