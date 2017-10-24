@@ -19,7 +19,7 @@ try {
 
 
 // initial North, initial South, east flow North, east flow South, east flow Final, west flow North, west flow South, west flow Final
-navs = ['DOB', 'JHH', 'CAVEB', 'WEFOR', 'AT', 'ESFOR', 'HEDEG', 'BR', '8L', '9R', '26R', '27L']
+navs = ['DOB', 'JHH', 'WETWO', 'WEONE', 'AT', 'ESFOR', 'HEDEG', 'BR', '8L', '9R', '26R', '27L']
 navcoords = {}
 currentFlow = intWind<180 ? 'e' : 'w'
 
@@ -146,7 +146,8 @@ checkArrivals = function() {
 		var p = G_objPlanes[plane]
 		if (p[16] == 'A' && p[11] == p['final'] && p[5]==p[8] && p[9]>1999) {
 			routePlane(plane + ' l ' + p['runway'])
-			p['leg'] = 'landing'
+			p.leg = 'landing'
+			delete p.sequence
 		}
 	})
 }
@@ -164,7 +165,7 @@ calcLines = function() {
 	for (var i=0; i<G_arrNavObjects.length; i++) {
 		if (G_arrNavObjects[i][0] == 'SCARR') {
 			lineX = G_arrNavObjects[i][2]
-		} else if (G_arrNavObjects[i][0] == 'CAVEB') {
+		} else if (G_arrNavObjects[i][0] == 'FT') {
 			northY = G_arrNavObjects[i][3]
 		} else if (G_arrNavObjects[i][0] == 'HEDEG') {
 			southY = G_arrNavObjects[i][3]
@@ -202,13 +203,13 @@ spacePlanes2 = function() {
 		var p = G_objPlanes[plane]
 		if (p[16]=='A') {
 			if (p.leg == 'queue' || p.leg == 'initial') {
-				if (Math.min(Math.sqrt(Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-northY,2)), Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-southY,2)) < 70) {
+				if (Math.min(Math.sqrt(Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-northY,2)), Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-southY,2)) < 100) {
 					p.leg = 'approach'
 					routePlane(plane + ' s 240 c ' + p.approach)
 					if (p.high) {
-						routePlane(plane + ' c 4')
+						routePlane(plane + ' c 4 x')
 					} else {
-						routePlane(plane + ' c 3')
+						routePlane(plane + ' c 3 x')
 					}
 					// for (var i=0; i<G_arrNavObjects.length; i++) {
 					// 	if (G_arrNavObjects[i] == p.waypoint) {
@@ -236,9 +237,9 @@ spacePlanes2 = function() {
 					p.leg = 'final'
 					routePlane(plane + ' c ' + p.final)
 					if (p.high) {
-						routePlane(plane + ' c 3')
+						routePlane(plane + ' c 3 x')
 					} else {
-						routePlane(plane + ' c 2')
+						routePlane(plane + ' c 2 x')
 					}
 				}
 			}
@@ -294,10 +295,10 @@ spacePlanes2 = function() {
 			}
 			if (i>0) {
 				if (G_objPlanes[queueN[i-1].plane].high) {
-					routePlane(queueN[i].plane + ' c 4')
+					routePlane(queueN[i].plane + ' c 4 x')
 					G_objPlanes[queueN[i].plane].high = false
 				} else {
-					routePlane(queueN[i].plane + ' c 5')
+					routePlane(queueN[i].plane + ' c 5 x')
 					G_objPlanes[queueN[i].plane].high = true
 				}
 			}
@@ -351,24 +352,18 @@ spacePlanes2 = function() {
 			}
 			if (i>0) {
 				if (G_objPlanes[queueS[i-1].plane].high) {
-					routePlane(queueS[i].plane + ' c 4')
+					routePlane(queueS[i].plane + ' c 4 x')
 					G_objPlanes[queueS[i].plane].high = false
 				} else {
-					routePlane(queueS[i].plane + ' c 5')
+					routePlane(queueS[i].plane + ' c 5 x')
 					G_objPlanes[queueS[i].plane].high = true
 				}
 			}
 			// highlightPoints.push({uid:Math.random().toString(), r:10, id:p.name, x:xi, y:yi, fill:'green'})
 		}
 	}
-}
 
 
-
-
-
-spacePlanes = function() {
-	var planes = Object.keys(G_objPlanes)
 	var waypoints = [navs[0], navs[1], navs[2], navs[3], navs[5], navs[6]]
 	for (var w=0; w<waypoints.length; w++) {
 		var waypoint = waypoints[w]
@@ -391,35 +386,30 @@ spacePlanes = function() {
 		// console.log(waypoint, queue)
 		for (var i=0; i<queue.length; i++) {
 			var p = queue[i]
-			var desired = i*150
+			var desired = i*100
+			var diff = p.dist - queue[0].dist - desired
 			G_objPlanes[p.plane].sequence = i
 			G_objPlanes[p.plane].dist = p.dist
 			G_objPlanes[p.plane].desired = desired
 			G_objPlanes[p.plane].firstDist = queue[0].dist
-			if (p.dist < 50) {
-				if (G_objPlanes[p.plane]['leg'] == 'initial') {
-					routePlane(p.plane + ' c 3 x s 300 c ' + G_objPlanes[p.plane]['approach'])
-					G_objPlanes[p.plane]['leg'] = 'approach'
-				} else {
-					routePlane(p.plane + ' c 2 x s 240 c ' + G_objPlanes[p.plane]['final'])
-					G_objPlanes[p.plane]['leg'] = 'final'
-				}
-			} else if (p.dist - queue[0].dist - desired > 50) {
+			G_objPlanes[p.plane].diff = diff
+			if (diff > 50) {
 				if (G_objPlanes[p.plane][10] != 400) {
 					routePlane(p.plane + ' s 400')
 				}
-			} else if (p.dist - queue[0].dist - desired < -50) {
+			} else if (diff < -50) {
 				if (G_objPlanes[p.plane][10] != 160) {
 					routePlane(p.plane + ' s 160')
 				}
 			} else {
-				if (G_objPlanes[p.plane][10] != 300) {
-					routePlane(p.plane + ' s 300')
+				if (G_objPlanes[p.plane][10] != 240) {
+					routePlane(p.plane + ' s 240')
 				}
 			}
 		}
 	}
 }
+
 
 render = function() {
 	d3.select('#canvas').select('svg').remove()
@@ -472,7 +462,7 @@ update = function() {
 			return 0
 		})
 	planes.selectAll('text')
-		.text(function(d) { return !!d.leg && (d.leg=='initial' || d.leg=='queue') ? d.sequence + '  diff: ' + Math.round(d.diff) : '' })
+		.text(function(d) { return !!d.sequence ? 'seq: ' + d.sequence + '  diff: ' + Math.round(d.diff) : '' })
 
 	// create new objects
 	planes.enter()
