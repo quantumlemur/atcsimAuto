@@ -1,38 +1,41 @@
-// // ATLANTA
-
-// // initial North, initial South, east flow North, east flow South, east flow Final, west flow North, west flow South, west flow Final
-// navs = ['DOB', 'JHH', 'CAVEB', 'WEFOR', 'AT', 'ESFOR', 'HEDEG', 'BR', '8L', '9R', '26R', '27L']
-
-// runwayNE = '8l'
-// runwaySE = '9r'
-// runwayNW = '26r'
-// runwaySW = '27l'
-
-// southmostWP = 'LUCKK'
-// northLine = 'FT'
-// southLine = 'HEDEG'
-// midLine = 'SCARR'
-
-
-
-// CHICAGO O'HARE
+// ATLANTA
 
 // initial North, initial South, east flow North, east flow South, east flow Final, west flow North, west flow South, west flow Final
-navs = ['OBK', 'HK', 'BAMBB', 'POSSM', 'ME', 'HIMGO', 'TONIE', 'TAFFS', '9L', '10R', '27R', '28L']
+navs = ['DOB', 'JHH', 'CAVEB', 'WEFOR', 'AT', 'ESFOR', 'HEDEG', 'BR', '8L', '9R', '26R', '27L']
 
-runwayNE = '9L'
-runwaySE = '10R'
-runwayNW = '27R'
-runwaySW = '28L'
+runwayNE = '8l'
+runwaySE = '9r'
+runwayNW = '26r'
+runwaySW = '27l'
 
-southmostWP = 'ACITO'
-northLine = 'KURKK'
-southLine = 'AUDRE'
-midLine = 'REKKS'
-
+northLine = 'FT'
+southLine = 'HEDEG'
+midLine = 'SCARR'
 
 
 
+// // CHICAGO O'HARE
+
+// // initial North, initial South, east flow North, east flow South, east flow Final, west flow North, west flow South, west flow Final
+// navs = ['OBK', 'HK', 'BAMBB', 'POSSM', 'ME', 'HIMGO', 'TONIE', 'TAFFS', '9L', '10R', '27R', '28L']
+
+// runwayNE = '9L'
+// runwaySE = '10R'
+// runwayNW = '27R'
+// runwaySW = '28L'
+
+// northLine = 'KURKK'
+// southLine = 'AUDRE'
+// midLine = 'REKKS'
+
+
+
+
+
+
+
+incomingSpacing = 150
+minLandingSpacing = 50
 
 
 function dynamicallyLoadScript(url) {
@@ -46,6 +49,7 @@ dynamicallyLoadScript('https://d3js.org/d3-scale.v1.min.js')
 
 
 try {
+	clearInterval(accelerate)
 	clearInterval(departureInterval)
 	clearInterval(arrivalInterval) 
 	clearInterval(spaceInterval) 
@@ -95,10 +99,10 @@ checkDepartures = function() {
 	planes.forEach(function(plane) {
 		if (waitingPlane == '') {
 			var p = G_objPlanes[plane]
-			if(!p['status'] && !p['runway'] && p[4] == 1026) {
+			if(!p['status'] && !p['runway'] && p[16] == 'D') {
 				p['status'] = 'waiting'
 				waitingPlane = plane
-				routePlane(plane + ' c 29 w')
+				routePlane(plane + ' c 29 c ' + (currentFlow=='e'?'090':'270') + ' w')
 				return
 			}
 		}
@@ -193,7 +197,7 @@ calcLines = function() {
 	lineX = 0
 	northY = 0
 	southY = 0
-	maxY = 0
+	maxY = window.innerHeight - 100
 	minY = 0
 
 	for (var i=0; i<G_arrNavObjects.length; i++) {
@@ -203,8 +207,6 @@ calcLines = function() {
 			northY = G_arrNavObjects[i][3]
 		} else if (G_arrNavObjects[i][0] == southLine) {
 			southY = G_arrNavObjects[i][3]
-		} else if (G_arrNavObjects[i][0] == southmostWP) {
-			maxY = G_arrNavObjects[i][3]
 		}
 	}
 }
@@ -298,7 +300,7 @@ spacePlanes2 = function() {
 			var y1 = p[3] + 62
 			var x0 = lineX
 			var y0 = northY
-			var desiredPathLength = frontPathLength + i*100
+			var desiredPathLength = frontPathLength + i*incomingSpacing
 			var diff = 0
 			var prevDiff = 9999999
 			var hasDecreased = false
@@ -314,9 +316,6 @@ spacePlanes2 = function() {
 					dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
 					pathLength = dist1 + dist2
 					diff = pathLength - desiredPathLength
-					// if (i==1) {
-					// 	highlightPoints.push({uid:Math.random().toString(), r:diff/100, id:hasDecreased, x:xi, y:yi, fill:'blue'})
-					// }
 					if (Math.abs(diff) > prevDiff) {
 						break
 					}
@@ -329,11 +328,13 @@ spacePlanes2 = function() {
 				pathLength = dist1 + dist2
 				diff = pathLength - desiredPathLength
 			}
+			// store data with the plane
 			p.diff = diff
 			p.dist1 = dist1
 			p.dist2 = dist2
 			p.pathLength = pathLength
 			p.desiredPathLength = desiredPathLength
+			// adjust the incoming speeds for spacing
 			if (diff > 50) {
 				setSpeed(queueN[i].plane, 450)
 			} else if (diff < -50) {
@@ -341,13 +342,12 @@ spacePlanes2 = function() {
 			} else {
 				setSpeed(queueN[i].plane, 300)
 			}
+			// stagger the altitudes
 			if (i>0) {
 				var prevHigh = G_objPlanes[queueN[i-1].plane].high
 				setAltitude(queueN[i].plane, prevHigh ? 5 : 6)
 				G_objPlanes[queueN[i].plane].high = !prevHigh
 			}
-			// highlightPoints.push({uid:Math.random().toString(), r:10, id:p.name, x:xi, y:yi, fill:'green'})
-			// highlightLines.push({x1:x1, y1:y1, x2:xi, y2:yi})
 		}
 	}
 
@@ -362,7 +362,7 @@ spacePlanes2 = function() {
 			var y1 = p[3] + 62
 			var x0 = lineX
 			var y0 = southY
-			var desiredPathLength = frontPathLength + i*100
+			var desiredPathLength = frontPathLength + i*incomingSpacing
 			var diff = 0
 			var prevDiff = 9999999
 			var hasDecreased = false
@@ -378,9 +378,6 @@ spacePlanes2 = function() {
 					dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
 					pathLength = dist1 + dist2
 					diff = pathLength - desiredPathLength
-					// if (i==1) {
-					// 	highlightPoints.push({uid:Math.random().toString(), r:diff/100, id:hasDecreased, x:xi, y:yi, fill:'blue'})
-					// }
 					if (Math.abs(diff) > prevDiff) {
 						break
 					}
@@ -393,11 +390,13 @@ spacePlanes2 = function() {
 				pathLength = dist1 + dist2
 				diff = pathLength - desiredPathLength
 			}
+			// store data with the plane
 			p.diff = diff
 			p.dist1 = dist1
 			p.dist2 = dist2
 			p.pathLength = pathLength
 			p.desiredPathLength = desiredPathLength
+			// adjust the incoming speeds for spacing
 			if (diff > 50) {
 				setSpeed(queueS[i].plane, 450)
 			} else if (diff < -50) {
@@ -405,12 +404,12 @@ spacePlanes2 = function() {
 			} else {
 				setSpeed(queueS[i].plane, 300)
 			}
+			// stagger the altitudes
 			if (i>0) {
 				var prevHigh = G_objPlanes[queueS[i-1].plane].high
 				setAltitude(queueS[i].plane, prevHigh ? 5 : 6)
 				G_objPlanes[queueS[i].plane].high = !prevHigh
 			}
-			// highlightPoints.push({uid:Math.random().toString(), r:10, id:p.name, x:xi, y:yi, fill:'green'})
 		}
 	}
 
@@ -434,10 +433,9 @@ spacePlanes2 = function() {
 			return a.dist - b.dist
 		})
 
-		// console.log(waypoint, queue)
 		for (var i=0; i<queue.length; i++) {
 			var p = queue[i]
-			var desired = i*100
+			var desired = i*incomingSpacing
 			var diff = p.dist - queue[0].dist - desired
 			G_objPlanes[p.plane].sequence = i
 			G_objPlanes[p.plane].dist = p.dist
@@ -451,8 +449,56 @@ spacePlanes2 = function() {
 			} else {
 				setSpeed(p.plane, 240)
 			}
+			// stagger the altitudes
+			if (i>0) {
+				var prevHigh = G_objPlanes[queue[i-1].plane].high
+				setAltitude(queue[i].plane, prevHigh ? 3 : 4)
+				G_objPlanes[queue[i].plane].high = !prevHigh
+			}
+		}
+
+	}
+
+	// now monitor the landing planes for spacing
+	var waypoints = [navs[8], navs[9], navs[10], navs[11]]
+	for (var w=0; w<waypoints.length; w++) {
+		var waypoint = waypoints[w]
+		var wx = navcoords[waypoint][0]
+		var wy = navcoords[waypoint][1]
+		var queue = []
+		// pull out the planes flying to my waypoint, and calculate their distance
+		planes.forEach(function(plane) {
+			var p = G_objPlanes[plane]
+			if (p[11] == waypoint) {
+				var dist = Math.sqrt(Math.pow(p[2]+24-navcoords[waypoint][0],2) + Math.pow(p[3]+62-navcoords[waypoint][1],2))
+				queue.push({'plane': plane, 'dist': dist})
+			}
+		})
+		// sort them according to their distance
+		queue.sort(function(a,b) {
+			return a.dist - b.dist
+		})
+
+		// console.log(waypoint, queue)
+		for (var i=1; i<queue.length; i++) {
+			var p = queue[i]
+			var diff = p.dist - queue[i-1].dist
+			G_objPlanes[p.plane].sequence = i
+			G_objPlanes[p.plane].diff = diff
+			// abort landing if too close to the plane in front
+			if (diff < minLandingSpacing) {
+				let pl = G_objPlanes[p.plane]
+				routePlane(p.plane + ' a')
+				pl.leg = 'approach'
+				routePlane(p.plane + ' c ' + pl.approach)
+				setSpeed(p.plane, 240)
+				setAltitude(p.plane, pl.high ? 4 : 3)
+				break
+			}
 		}
 	}
+
+
 }
 
 
@@ -575,8 +621,11 @@ update = function() {
 }
 
 
+
+
+accelerate = setInterval(function() { intNewPlaneTimer = 1 },20000) 
 flowInterval = setInterval(checkFlow, 10000)
 departureInterval = setInterval(checkDepartures, 1000)
 arrivalInterval = setInterval(checkArrivals, 1000)
 spaceInterval = setInterval(spacePlanes2, 1000)
-updateInterval = setInterval(update, 200)
+// updateInterval = setInterval(update, 200)
