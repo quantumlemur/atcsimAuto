@@ -487,12 +487,8 @@ spacePlanes2 = function() {
 			G_objPlanes[p.plane].diff = diff
 			// abort landing if too close to the plane in front
 			if (diff < minLandingSpacing) {
-				let pl = G_objPlanes[p.plane]
 				routePlane(p.plane + ' a')
-				pl.leg = 'approach'
-				routePlane(p.plane + ' c ' + pl.approach)
-				setSpeed(p.plane, 240)
-				setAltitude(p.plane, pl.high ? 4 : 3)
+				delete G_objPlanes[p.plane]['final'] // remove the 'final' tag so that the plane is rerouted as if new
 				break
 			}
 		}
@@ -578,6 +574,8 @@ update = function() {
 				.attr('x', '15')
 				.attr('y', '0')
 				.style('stroke', 'black')
+				.style('fill', 'black')
+				.style('font-size', '14px')
 
 		})
 
@@ -623,7 +621,7 @@ update = function() {
 
 
 
-accelerate = setInterval(function() { intNewPlaneTimer = 1 },20000) 
+accelerate = setInterval(function() { intNewPlaneTimer = 1 }, 20000) 
 flowInterval = setInterval(checkFlow, 10000)
 departureInterval = setInterval(checkDepartures, 1000)
 arrivalInterval = setInterval(checkArrivals, 1000)
