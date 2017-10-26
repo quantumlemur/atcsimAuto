@@ -1,41 +1,21 @@
-// ATLANTA
-
-// initial North, initial South, east flow North, east flow South, east flow Final, west flow North, west flow South, west flow Final
-navs = ['DOB', 'JHH', 'CAVEB', 'WEFOR', 'AT', 'ESFOR', 'HEDEG', 'BR', '8L', '9R', '26R', '27L']
-
-runwayNE = '8l'
-runwaySE = '9r'
-runwayNW = '26r'
-runwaySW = '27l'
-
-northLine = 'FT'
-southLine = 'HEDEG'
-midLine = 'SCARR'
-
-
-
-// // CHICAGO O'HARE
-
-// // initial North, initial South, east flow North, east flow South, east flow Final, west flow North, west flow South, west flow Final
-// navs = ['OBK', 'HK', 'BAMBB', 'POSSM', 'ME', 'HIMGO', 'TONIE', 'TAFFS', '9L', '10R', '27R', '28L']
-
-// runwayNE = '9L'
-// runwaySE = '10R'
-// runwayNW = '27R'
-// runwaySW = '28L'
-
-// northLine = 'KURKK'
-// southLine = 'AUDRE'
-// midLine = 'REKKS'
-
-
-
-
-
 
 
 incomingSpacing = 150
 minLandingSpacing = 50
+
+
+
+if (document.title == 'Atlanta Hartsfield Jackson Intl.') {
+	runwayNE = '8l'
+	runwaySE = '9r'
+	runwayNW = '26r'
+	runwaySW = '27l'
+} else if (document.title == 'Chicago O\'Hare Intl.') {
+	runwayNE = '9L'
+	runwaySE = '10R'
+	runwayNW = '27R'
+	runwaySW = '28L'
+}
 
 
 function dynamicallyLoadScript(url) {
@@ -61,14 +41,64 @@ try {
 navcoords = {}
 currentFlow = intWind<180 ? 'e' : 'w'
 
-navs.forEach(function(nav) {
-	for (var i=0; i<G_arrNavObjects.length; i++) {
-		if (G_arrNavObjects[i][0] == nav) {
-			navcoords[nav] = [G_arrNavObjects[i][2], G_arrNavObjects[i][3]]
-			break
+
+northDownwindIndex = -1
+southDownwindIndex = -1
+finalIndex = -1
+
+calcLines = function() {
+	let panelWidth = document.getElementsByClassName('controlpanel')[0].clientWidth
+
+	minX = 0
+	maxX = window.innerWidth - panelWidth
+
+	lineX = maxX / 2
+	midY = window.innerHeight / 2
+	northY = midY * .85
+	southY = midY * 1.15
+
+	maxY = window.innerHeight * 0.98
+	minY = window.innerHeight * 0.02
+
+	navs = {
+		NORTHDOWNWIND: ['NORTHDOWNWIND', 2, currentFlow='e'?lineX/2:lineX*.75, northY],
+		SOUTHDOWNWIND: ['SOUTHDOWNWIND', 2, currentFlow='e'?lineX/2:lineX*.75, southY],
+		FINAL: ['FINAL', 2, lineX, midY],
+	}
+
+	if (northDownwindIndex == -1 || southDownwindIndex == -1 || finalIndex == -1) {
+		for (let i=0; i<G_arrNavObjects.length; i++) {
+			if (G_arrNavObjects[i][0] == 'NORTHDOWNWIND') {
+				northDownwindIndex = i
+			} else if (G_arrNavObjects[i][0] == 'SOUTHDOWNWIND') {
+				southDownwindIndex = i
+			} else if (G_arrNavObjects[i][0] == 'FINAL') {
+				finalIndex = i
+			}
 		}
 	}
-})
+
+	if (northDownwindIndex == -1) {
+		northDownwindIndex = G_arrNavObjects.push(navs.NORTHDOWNWIND) - 1
+	} else {
+		G_arrNavObjects[northDownwindIndex] = navs.NORTHDOWNWIND
+	}
+
+	if (southDownwindIndex == -1) {
+		southDownwindIndex = G_arrNavObjects.push(navs.SOUTHDOWNWIND) - 1
+	} else {
+		G_arrNavObjects[southDownwindIndex] = navs.SOUTHDOWNWIND
+	}
+
+	if (finalIndex == -1) {
+		finalIndex = G_arrNavObjects.push(navs.FINAL) - 1
+	} else {
+		G_arrNavObjects[finalIndex] = navs.FINAL
+	}
+}
+
+
+calcLines()
 
 
 routePlane = function(routing) {
@@ -92,8 +122,6 @@ checkDepartures = function() {
 			waitingPlane = plane
 		}
 	})
-
-	// console.log('waiting: ' + waitingPlane + '     taking off: ' + takingOffPlane)
 
 	// if nobody's waiting, then send one to line up and wait
 	planes.forEach(function(plane) {
@@ -134,23 +162,13 @@ checkFlow = function() {
 	if ((currentFlow=='w' && intWind<150 && intWind>30) || (currentFlow=='e' && intWind>210 && intWind<330)) {
 		currentFlow = currentFlow=='e' ? 'w' : 'e'
 		var planes = Object.keys(G_objPlanes)
-		planes.forEach(function(plane) {
-			var p = G_objPlanes[plane]
-			if (p[16]=='A' && p['leg']!='landing') {
-				delete p['final'] // remove the 'final' tag so that the plane is rerouted as if new
-			}
-		})
+		calcLines()
 	}
 }
 
 
 checkArrivals = function() {
 	var planes = Object.keys(G_objPlanes)
-	var navN = navs[0]
-	var navS = navs[1]
-	var navAN = currentFlow=='e' ? navs[2] : navs[5]
-	var navAS = currentFlow=='e' ? navs[3] : navs[6]
-	var navF = currentFlow=='e' ? navs[4] : navs[7]
 	var runN = currentFlow=='e' ? runwayNE : runwayNW
 	var runS = currentFlow=='e' ? runwaySE : runwaySW
 
@@ -159,30 +177,22 @@ checkArrivals = function() {
 		var p = G_objPlanes[plane]
 		if (p[16] == 'A' && !p['final']) {
 			// if we're north of the final waypoint
-			if (p[3]+62 < navcoords[navF][1]) {
-				// routePlane(plane + ' c 4 s 300 c ' + navN)
-				p['turnDirection'] = '180'
-				p['approach'] = navAN
+			if (p[3]+62 < midY) {
 				p['runway'] = runN
 				p['north'] = true
 			} else {
-				// routePlane(plane + ' c 4 s 300 c ' + navS)
-				p['turnDirection'] = '000'
-				p['approach'] = navAS
 				p['runway'] = runS
 				p['north'] = false
 			}
-			p['final'] = navF
 			p['leg'] = 'initial'
 			p.high = true
-			routePlane(plane + ' c 5 s 300')
 		}
 	})
 
 	// if we're on final and pointed towards our heading, try to land
 	planes.forEach(function(plane) {
 		var p = G_objPlanes[plane]
-		if (p[16] == 'A' && p[11] == p['final'] && p[5]==p[8] && p[9]>1999) {
+		if (p[16]=='A' && p[11]=='FINAL' && p[5]==p[8] && p[9]>1999) {
 			routePlane(plane + ' l ' + p['runway'])
 			p.leg = 'landing'
 			delete p.sequence
@@ -192,26 +202,6 @@ checkArrivals = function() {
 
 
 highlightLines = []
-
-calcLines = function() {
-	lineX = 0
-	northY = 0
-	southY = 0
-	maxY = window.innerHeight - 100
-	minY = 0
-
-	for (var i=0; i<G_arrNavObjects.length; i++) {
-		if (G_arrNavObjects[i][0] == midLine) {
-			lineX = G_arrNavObjects[i][2]
-		} else if (G_arrNavObjects[i][0] == northLine) {
-			northY = G_arrNavObjects[i][3]
-		} else if (G_arrNavObjects[i][0] == southLine) {
-			southY = G_arrNavObjects[i][3]
-		}
-	}
-}
-
-calcLines()
 
 
 setWaypoint = function(plane, x, y) {
@@ -242,7 +232,19 @@ setSpeed= function(plane, speed) {
 	}
 }
 
-highlightPoints = []
+pWidth = document.getElementsByClassName('controlpanel')[0].clientWidth
+
+highlightPoints = [
+	{uid:1, x:0, y:0, r:50, fill:'black'},
+	{uid:2, x:(window.innerWidth-pWidth), y:0, r:50, fill:'black'},
+	{uid:3, x:0, y:window.innerHeight, r:50, fill:'black'},
+	{uid:4, x:window.innerWidth-pWidth, y:window.innerHeight, r:50, fill:'black'},
+	{uid:5, x:(window.innerWidth-pWidth)/2, y:window.innerHeight/2, r:50, fill:'black'},
+	{uid:6, x:lineX, y:northY, r:10, fill:'black'},
+	{uid:7, x:lineX, y:southY, r:10, fill:'black'},
+]
+
+
 
 spacePlanes2 = function() {
 	var planes = Object.keys(G_objPlanes)
@@ -255,8 +257,8 @@ spacePlanes2 = function() {
 		if (p[16]=='A') {
 			if (p.leg == 'queue' || p.leg == 'initial') {
 				if (Math.min(Math.sqrt(Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-northY,2)), Math.sqrt(Math.pow(p[2]+24-lineX,2) + Math.pow(p[3]+62-southY,2))) < 50) {
-					p.leg = 'approach'
-					routePlane(plane + ' c ' + p.approach)
+					p.leg = 'downwind'
+					routePlane(plane + ' c ' + (p.north?'NORTHDOWNWIND':'SOUTHDOWNWIND'))
 					setSpeed(plane, 240)
 					setAltitude(plane, p.high ? 4 : 3)
 				} else {
@@ -276,9 +278,9 @@ spacePlanes2 = function() {
 					}
 				}
 			} else if (p.leg == 'approach') {
-				if (Math.sqrt(Math.pow(p[2]+24 - navcoords[p.approach][0], 2) + Math.pow(p[3]+62 - navcoords[p.approach][1], 2)) < 20) {
+				if (p[2]<lineX*.5 || p[2]>lineX*1.5) {
 					p.leg = 'final'
-					routePlane(plane + ' c ' + p.final)
+					routePlane(plane + ' c FINAL')
 					setAltitude(plane, p.high ? 3 : 2)
 				}
 			}
@@ -287,7 +289,6 @@ spacePlanes2 = function() {
 	queueN.sort(function(a,b) { return a.dist - b.dist })
 	queueS.sort(function(a,b) { return a.dist - b.dist })
 
-	highlightPoints = []
 	highlightLines = []
 
 	// NORTH
@@ -414,17 +415,17 @@ spacePlanes2 = function() {
 	}
 
 	// now space the places that are on the downwind leg
-	var waypoints = [navs[0], navs[1], navs[2], navs[3], navs[5], navs[6]]
+	var waypoints = ['NORTHDOWNWIND', 'SOUTHDOWNWIND']
 	for (var w=0; w<waypoints.length; w++) {
 		var waypoint = waypoints[w]
-		var wx = navcoords[waypoint][0]
-		var wy = navcoords[waypoint][1]
+		var wx = navs[waypoint][2]
+		var wy = navs[waypoint][3]
 		var queue = []
 		// pull out the planes flying to my waypoint, and calculate their distance
 		planes.forEach(function(plane) {
 			var p = G_objPlanes[plane]
 			if (p[11] == waypoint) {
-				var dist = Math.sqrt(Math.pow(p[2]+24-navcoords[waypoint][0],2) + Math.pow(p[3]+62-navcoords[waypoint][1],2))
+				var dist = Math.sqrt(Math.pow(p[2]+24-wx,2) + Math.pow(p[3]+62-wy,2))
 				queue.push({'plane': plane, 'dist': dist})
 			}
 		})
@@ -459,40 +460,40 @@ spacePlanes2 = function() {
 
 	}
 
-	// now monitor the landing planes for spacing
-	var waypoints = [navs[8], navs[9], navs[10], navs[11]]
-	for (var w=0; w<waypoints.length; w++) {
-		var waypoint = waypoints[w]
-		var wx = navcoords[waypoint][0]
-		var wy = navcoords[waypoint][1]
-		var queue = []
-		// pull out the planes flying to my waypoint, and calculate their distance
-		planes.forEach(function(plane) {
-			var p = G_objPlanes[plane]
-			if (p[11] == waypoint) {
-				var dist = Math.sqrt(Math.pow(p[2]+24-navcoords[waypoint][0],2) + Math.pow(p[3]+62-navcoords[waypoint][1],2))
-				queue.push({'plane': plane, 'dist': dist})
-			}
-		})
-		// sort them according to their distance
-		queue.sort(function(a,b) {
-			return a.dist - b.dist
-		})
+	// // now monitor the landing planes for spacing
+	// var waypoints = [navs[8], navs[9], navs[10], navs[11]]
+	// for (var w=0; w<waypoints.length; w++) {
+	// 	var waypoint = waypoints[w]
+	// 	var wx = navcoords[waypoint][0]
+	// 	var wy = navcoords[waypoint][1]
+	// 	var queue = []
+	// 	// pull out the planes flying to my waypoint, and calculate their distance
+	// 	planes.forEach(function(plane) {
+	// 		var p = G_objPlanes[plane]
+	// 		if (p[11] == waypoint) {
+	// 			var dist = Math.sqrt(Math.pow(p[2]+24-navcoords[waypoint][0],2) + Math.pow(p[3]+62-navcoords[waypoint][1],2))
+	// 			queue.push({'plane': plane, 'dist': dist})
+	// 		}
+	// 	})
+	// 	// sort them according to their distance
+	// 	queue.sort(function(a,b) {
+	// 		return a.dist - b.dist
+	// 	})
 
-		// console.log(waypoint, queue)
-		for (var i=1; i<queue.length; i++) {
-			var p = queue[i]
-			var diff = p.dist - queue[i-1].dist
-			G_objPlanes[p.plane].sequence = i
-			G_objPlanes[p.plane].diff = diff
-			// abort landing if too close to the plane in front
-			if (diff < minLandingSpacing) {
-				routePlane(p.plane + ' a')
-				delete G_objPlanes[p.plane]['final'] // remove the 'final' tag so that the plane is rerouted as if new
-				break
-			}
-		}
-	}
+	// 	// console.log(waypoint, queue)
+	// 	for (var i=1; i<queue.length; i++) {
+	// 		var p = queue[i]
+	// 		var diff = p.dist - queue[i-1].dist
+	// 		G_objPlanes[p.plane].sequence = i
+	// 		G_objPlanes[p.plane].diff = diff
+	// 		// abort landing if too close to the plane in front
+	// 		if (diff < minLandingSpacing) {
+	// 			routePlane(p.plane + ' a')
+	// 			delete G_objPlanes[p.plane]['final'] // remove the 'final' tag so that the plane is rerouted as if new
+	// 			break
+	// 		}
+	// 	}
+	// }
 
 
 }
@@ -621,9 +622,9 @@ update = function() {
 
 
 
-accelerate = setInterval(function() { intNewPlaneTimer = 1 }, 20000) 
+// accelerate = setInterval(function() { intNewPlaneTimer = 1 }, 20000) 
 flowInterval = setInterval(checkFlow, 10000)
 departureInterval = setInterval(checkDepartures, 1000)
 arrivalInterval = setInterval(checkArrivals, 1000)
 spaceInterval = setInterval(spacePlanes2, 1000)
-// updateInterval = setInterval(update, 200)
+updateInterval = setInterval(update, 200)
