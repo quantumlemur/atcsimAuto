@@ -130,14 +130,14 @@ checkDepartures = function() {
 			if(!p['status'] && !p['runway'] && p[16] == 'D') {
 				p['status'] = 'waiting'
 				waitingPlane = plane
-				routePlane(plane + ' c 28 c ' + (eastFlow?'090':'270') + ' w')
+				routePlane(plane + ' c 24 c ' + (eastFlow?'090':'270') + ' w')
 				return
 			}
 		}
 	})
 
 	// if nobody's taking off, then tell the waiting plane to take off
-	if ((takingOffPlane == '' || G_objPlanes[takingOffPlane][6]>100) && waitingPlane != '') {
+	if ((takingOffPlane == '' || G_objPlanes[takingOffPlane][6]>103) && waitingPlane != '') {
 		takingOffPlane = waitingPlane
 		waitingPlane = ''
 		G_objPlanes[takingOffPlane]['status'] = 'taking off'
@@ -625,7 +625,7 @@ update = function() {
 
 
 
-accelerate = setInterval(function() { intNewPlaneTimer = 1 }, 20000) 
+accelerate = setInterval(function() { intNewPlaneTimer = 1 }, 10000) 
 flowInterval = setInterval(checkFlow, 10000)
 departureInterval = setInterval(checkDepartures, 1000)
 arrivalInterval = setInterval(checkArrivals, 1000)
