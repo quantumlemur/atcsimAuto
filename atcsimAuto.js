@@ -3,8 +3,8 @@
 incomingSpacing = 150
 minLandingSpacing = 40
 takingOffPlaneSpeed = 100
-newPlaneTiming = 20000
-innerPercentage = 0.3
+planesAtOnce = 10
+innerPercentage = 0.1
 outerPercentage = 0.05
 
 
@@ -217,7 +217,7 @@ checkArrivals = function() {
 	planes.forEach(function(plane) {
 		var p = G_objPlanes[plane]
 		if (p[16]=='A' && p[11]=='FINAL' && p[5]==p[8] && p[9]>1999) {
-			routePlane(plane + ' l ' + p['runway'])
+			routePlane(plane + ' l ' + (p.north?runN:runS))
 			p.leg = 'landing'
 			delete p.sequence
 		}
@@ -292,6 +292,7 @@ spacePlanes2 = function() {
 			} else if (p.leg == 'downwind') {
 				if (p[2]<lineX*.5 || p[2]>lineX*1.5) {
 					p.leg = 'final'
+					delete p.sequence
 					routePlane(plane + ' c FINAL')
 					setAltitude(plane, p.high ? 3 : 2)
 				}
@@ -496,7 +497,7 @@ spacePlanes2 = function() {
 		for (var i=1; i<queue.length; i++) {
 			var p = queue[i]
 			var diff = p.dist - queue[i-1].dist
-			G_objPlanes[p.plane].sequence = i
+			// G_objPlanes[p.plane].sequence = i
 			G_objPlanes[p.plane].diff = diff
 			// abort landing if too close to the plane in front
 			if (diff < minLandingSpacing) {
@@ -635,7 +636,7 @@ update = function() {
 
 
 
-accelerate = setInterval(function() { intNewPlaneTimer = 1 }, newPlaneTiming) 
+accelerate = setInterval(function() { if (intPlanesOnScreen < planesAtOnce) { intNewPlaneTimer = 0 } }, 1000) 
 flowInterval = setInterval(checkFlow, 10000)
 departureInterval = setInterval(checkDepartures, 1000)
 arrivalInterval = setInterval(checkArrivals, 1000)
