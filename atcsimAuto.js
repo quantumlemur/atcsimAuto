@@ -1,7 +1,11 @@
 
 
 incomingSpacing = 150
-minLandingSpacing = 50
+minLandingSpacing = 40
+takingOffPlaneSpeed = 100
+newPlaneTiming = 20000
+innerPercentage = 0.3
+outerPercentage = 0.05
 
 
 
@@ -54,11 +58,11 @@ calcLines = function() {
 
 	lineX = maxX / 2
 	midY = window.innerHeight / 2
-	northY = midY * .85
-	southY = midY * 1.15
+	northY = midY * (1 - innerPercentage)
+	southY = midY * (1 + innerPercentage)
 
-	maxY = window.innerHeight * 0.98
-	minY = window.innerHeight * 0.02
+	maxY = window.innerHeight * (1 - outerPercentage)
+	minY = window.innerHeight * outerPercentage
 
 	navs = {
 		NORTHDOWNWIND: ['NORTHDOWNWIND', 2, eastFlow?lineX/2:lineX*1.5, northY],
@@ -137,7 +141,7 @@ checkDepartures = function() {
 	})
 
 	// if nobody's taking off, then tell the waiting plane to take off
-	if ((takingOffPlane == '' || G_objPlanes[takingOffPlane][6]>103) && waitingPlane != '') {
+	if ((takingOffPlane == '' || G_objPlanes[takingOffPlane][6]>takingOffPlaneSpeed) && waitingPlane != '') {
 		takingOffPlane = waitingPlane
 		waitingPlane = ''
 		G_objPlanes[takingOffPlane]['status'] = 'taking off'
@@ -192,7 +196,12 @@ checkArrivals = function() {
 		var p = G_objPlanes[plane]
 		if (p[16] == 'A' && !p['runway']) {
 			// if we're north of the final waypoint
-			if (p[3]+62 < midY) {
+			let north = p[3]+62 < midY
+			if (p.abort) {
+				north = !p.north
+				delete p.abort
+			}
+			if (north) {
 				p['runway'] = runN
 				p['north'] = true
 			} else {
@@ -314,7 +323,7 @@ spacePlanes2 = function() {
 			var dist2 = 0
 			var pathLength = 0
 			if (p.leg == 'initial') {
-				for (var y=northY; y>minY+100; y-=10) {
+				for (var y=northY; y>minY; y-=10) {
 					yi = y
 					dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
 					dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
@@ -376,7 +385,7 @@ spacePlanes2 = function() {
 			var dist2 = 0
 			var pathLength = 0
 			if (p.leg == 'initial') {
-				for (var y=southY; y<maxY-100; y+=10) {
+				for (var y=southY; y<maxY; y+=10) {
 					yi = y
 					dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
 					dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
@@ -492,6 +501,7 @@ spacePlanes2 = function() {
 			// abort landing if too close to the plane in front
 			if (diff < minLandingSpacing) {
 				routePlane(p.plane + ' a')
+				G_objPlanes[p.plane].abort = true
 				delete G_objPlanes[p.plane]['runway'] // remove the 'final' tag so that the plane is rerouted as if new
 				break
 			}
@@ -625,7 +635,7 @@ update = function() {
 
 
 
-accelerate = setInterval(function() { intNewPlaneTimer = 1 }, 10000) 
+accelerate = setInterval(function() { intNewPlaneTimer = 1 }, newPlaneTiming) 
 flowInterval = setInterval(checkFlow, 10000)
 departureInterval = setInterval(checkDepartures, 1000)
 arrivalInterval = setInterval(checkArrivals, 1000)
