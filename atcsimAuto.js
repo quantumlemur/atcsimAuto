@@ -3,9 +3,11 @@
 incomingSpacing = 150
 minLandingSpacing = 40
 takingOffPlaneSpeed = 100
-planesAtOnce = 10
-innerPercentage = 0.1
+planesAtOnce = 45
+innerPercentage = 0.15
 outerPercentage = 0.05
+spacingPrecision = 50
+spacingStepSize = 10
 
 
 
@@ -49,6 +51,9 @@ eastFlow = intWind<180
 northDownwindIndex = -1
 southDownwindIndex = -1
 finalIndex = -1
+
+northDownwindMaxAlt = 5
+southDownwindMaxAlt = 5
 
 calcLines = function() {
 	let panelWidth = document.getElementsByClassName('controlpanel')[0].clientWidth
@@ -157,10 +162,10 @@ checkDepartures = function() {
 		}
 	})
 
-	// if the taking off plane is above 3000ft, then route him
+	// if the taking off plane is above 10000ft, then route him
 	planes.forEach(function(plane) {
 		var p = G_objPlanes[plane]
-		if (p[16] == 'T' && p[4] > 6000) {
+		if (p[16] == 'T' && p[4] > 10000) {
 			p['status'] = 'en route'
 			var req = G_arrNavObjects[p[13]][0]
 			if (p[11] != req) {
@@ -289,12 +294,18 @@ spacePlanes2 = function() {
 						queueS.push({'plane': plane, 'dist': dist})
 					}
 				}
+				if (p.leg == 'queue') {
+					// if we're in the queue but we've got way off to the sides, just try again to re-insert ourselves
+					if (p[2] < lineX*.1 || p[2] > (lineX + lineX*.9)) {
+						delete p.runway
+					}
+				}
 			} else if (p.leg == 'downwind') {
 				if (p[2]<lineX*.5 || p[2]>lineX*1.5) {
 					p.leg = 'final'
 					delete p.sequence
 					routePlane(plane + ' c FINAL')
-					setAltitude(plane, p.high ? 3 : 2)
+					setAltitude(plane, 2)
 				}
 			}
 		}
@@ -324,7 +335,7 @@ spacePlanes2 = function() {
 			var dist2 = 0
 			var pathLength = 0
 			if (p.leg == 'initial') {
-				for (var y=northY; y>minY; y-=10) {
+				for (var y=northY; y>minY; y-=spacingStepSize) {
 					yi = y
 					dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
 					dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
@@ -337,10 +348,19 @@ spacePlanes2 = function() {
 				}
 				setWaypoint(queueN[i].plane, xi, yi)
 			} else {
-				dist1 = 0
-				dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
-				pathLength = dist1 + dist2
-				diff = pathLength - desiredPathLength
+				for (var x=0; x<lineX*.9; x+=spacingStepSize) {
+					yi = northY
+					xi = lineX + (eastFlow?x:-x)
+					dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
+					dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
+					pathLength = dist1 + dist2
+					diff = pathLength - desiredPathLength
+					if (Math.abs(diff) > prevDiff) {
+						break
+					}
+					prevDiff = Math.abs(diff)
+				}
+				setWaypoint(queueN[i].plane, xi, yi)
 			}
 			// store data with the plane
 			p.diff = diff
@@ -349,19 +369,15 @@ spacePlanes2 = function() {
 			p.pathLength = pathLength
 			p.desiredPathLength = desiredPathLength
 			// adjust the incoming speeds for spacing
-			if (diff > 50) {
-				setSpeed(queueN[i].plane, 450)
-			} else if (diff < -50) {
+			if (diff > spacingPrecision) {
+				setSpeed(queueN[i].plane, 400)
+			} else if (diff < -spacingPrecision) {
 				setSpeed(queueN[i].plane, 160)
 			} else {
-				setSpeed(queueN[i].plane, 300)
+				setSpeed(queueN[i].plane, 240)
 			}
 			// stagger the altitudes
-			if (i>0) {
-				var prevHigh = G_objPlanes[queueN[i-1].plane].high
-				setAltitude(queueN[i].plane, prevHigh ? 5 : 6)
-				G_objPlanes[queueN[i].plane].high = !prevHigh
-			}
+			setAltitude(queueN[i].plane, i+northDownwindMaxAlt+1)
 		}
 	}
 
@@ -386,7 +402,7 @@ spacePlanes2 = function() {
 			var dist2 = 0
 			var pathLength = 0
 			if (p.leg == 'initial') {
-				for (var y=southY; y<maxY; y+=10) {
+				for (var y=southY; y<maxY; y+=spacingStepSize) {
 					yi = y
 					dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
 					dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
@@ -399,10 +415,19 @@ spacePlanes2 = function() {
 				}
 				setWaypoint(queueS[i].plane, xi, yi)
 			} else {
-				dist1 = 0
-				dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
-				pathLength = dist1 + dist2
-				diff = pathLength - desiredPathLength
+				for (var x=0; x<lineX*.9; x+=spacingStepSize) {
+					yi = southY
+					xi = lineX + (eastFlow?x:-x)
+					dist1 = Math.sqrt(Math.pow(x0-xi,2) + Math.pow(y0-yi,2))
+					dist2 = Math.sqrt(Math.pow(x1-xi,2) + Math.pow(y1-yi,2))
+					pathLength = dist1 + dist2
+					diff = pathLength - desiredPathLength
+					if (Math.abs(diff) > prevDiff) {
+						break
+					}
+					prevDiff = Math.abs(diff)
+				}
+				setWaypoint(queueS[i].plane, xi, yi)
 			}
 			// store data with the plane
 			p.diff = diff
@@ -411,19 +436,15 @@ spacePlanes2 = function() {
 			p.pathLength = pathLength
 			p.desiredPathLength = desiredPathLength
 			// adjust the incoming speeds for spacing
-			if (diff > 50) {
-				setSpeed(queueS[i].plane, 450)
-			} else if (diff < -50) {
+			if (diff > spacingPrecision) {
+				setSpeed(queueS[i].plane, 400)
+			} else if (diff < -spacingPrecision) {
 				setSpeed(queueS[i].plane, 160)
 			} else {
-				setSpeed(queueS[i].plane, 300)
+				setSpeed(queueS[i].plane, 240)
 			}
 			// stagger the altitudes
-			if (i>0) {
-				var prevHigh = G_objPlanes[queueS[i-1].plane].high
-				setAltitude(queueS[i].plane, prevHigh ? 5 : 6)
-				G_objPlanes[queueS[i].plane].high = !prevHigh
-			}
+			setAltitude(queueS[i].plane, i+southDownwindMaxAlt+1)
 		}
 	}
 
@@ -456,19 +477,21 @@ spacePlanes2 = function() {
 			G_objPlanes[p.plane].desired = desired
 			G_objPlanes[p.plane].firstDist = queue[0].dist
 			G_objPlanes[p.plane].diff = diff
-			if (diff > 50) {
+			if (diff > spacingPrecision) {
 				setSpeed(p.plane, 300)
-			} else if (diff < -50) {
+			} else if (diff < -spacingPrecision) {
 				setSpeed(p.plane, 160)
 			} else {
 				setSpeed(p.plane, 240)
 			}
 			// stagger the altitudes
-			if (i>0) {
-				var prevHigh = G_objPlanes[queue[i-1].plane].high
-				setAltitude(queue[i].plane, prevHigh ? 3 : 4)
-				G_objPlanes[queue[i].plane].high = !prevHigh
-			}
+			setAltitude(queue[i].plane, i+3)
+		}
+
+		if (waypoint == 'NORTHDOWNWIND') {
+			northDownwindMaxAlt = queue.length + 2
+		} else {
+			southDownwindMaxAlt = queue.length + 2
 		}
 
 	}
@@ -501,17 +524,39 @@ spacePlanes2 = function() {
 			G_objPlanes[p.plane].diff = diff
 			// abort landing if too close to the plane in front
 			if (diff < minLandingSpacing) {
-				routePlane(p.plane + ' a')
 				G_objPlanes[p.plane].abort = true
-				delete G_objPlanes[p.plane]['runway'] // remove the 'final' tag so that the plane is rerouted as if new
 				break
 			}
 		}
 	}
 
 
+	// reroute the aborted planes once they're high enough
+	var planes = Object.keys(G_objPlanes)
+	planes.forEach(function(plane) {
+		var p = G_objPlanes[plane]
+		if (p.abort) {
+			if (p[9] != 10000) {
+				routePlane(plane + ' a')
+				routePlane(plane + ' c ' + eastFlow?'090':'270')
+				routePlane(plane + ' c 10')
+			}
+			if (p[4] >= 10000) {
+				delete p.runway
+				p.abort == false
+			}
+		}
+	})
 }
 
+
+abort = function(plane) {
+	plane = plane.toUpperCase()
+	if (!!G_objPlanes[plane]) {
+		delete G_objPlanes[plane].runway
+		G_objPlanes[plane].abort = true
+	}
+}
 
 render = function() {
 	d3.select('#canvas').select('svg').remove()
@@ -564,7 +609,7 @@ update = function() {
 			return 0
 		})
 	planes.selectAll('text')
-		.text(function(d) { return !!d.sequence ? '#' + d.sequence + ' | diff: ' + Math.round(-d.diff) : '' })
+		.text(function(d) { return !!d.sequence ? '#' + d.sequence : '' })
 
 	// create new objects
 	planes.enter()
