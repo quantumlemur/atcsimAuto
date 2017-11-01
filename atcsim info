@@ -14,6 +14,8 @@
 14:
 15:
 16:  status?  arrival/wait/takeoff
+17:
+18: conflict?
 
 
 
@@ -26,5 +28,56 @@ dal1732 c 2 x
 
 660, 901
 
+asa777 l 10
 
-You can create fake nav objects, then move them, and the planes will track them!
+
+stats
+
+
+
+
+
+
+Chicago:
+	Depart:
+		4L
+		9R
+		10L
+		33
+		27L
+
+
+
+
+
+
+
+	lineX = 0
+	northY = 0
+	southY = 0
+	eastX = 0
+	westX = 0
+	maxY = window.innerHeight - 100
+	minY = 0
+
+	for (var i=0; i<G_arrNavObjects.length; i++) {
+		if (G_arrNavObjects[i][0] == midLine) {
+			lineX = G_arrNavObjects[i][2]
+		} else if (G_arrNavObjects[i][0] == northLine) {
+			northY = G_arrNavObjects[i][3]
+		} else if (G_arrNavObjects[i][0] == southLine) {
+			southY = G_arrNavObjects[i][3]
+		} else if (G_arrNavObjects[i][0] == eastLine) {
+			eastX = G_arrNavObjects[i][3]
+		} else if (G_arrNavObjects[i][0] == westLine) {
+			westX = G_arrNavObjects[i][3]
+		}
+	}
+
+	northApproach = G_arrNavObjects.push(['northApproach', 2, currentFlow=='e'?westX:eastX, northY]) - 1
+	southApproach = G_arrNavObjects.push(['southApproach', 2, currentFlow=='e'?westX:eastX, southY]) - 1
+
+
+
+
+ENY3136 c OBK

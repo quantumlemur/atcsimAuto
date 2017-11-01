@@ -176,7 +176,7 @@ checkDepartures = function() {
 	planes.forEach(function(plane) {
 		var p = G_objPlanes[plane]
 		if (p[16] == 'T' && p[4] > intFieldElev) {
-			setAltitude(plane, 25, true)
+			setAltitude(plane, 10, true)
 			setSpeed(plane, 600)
 		}
 	})
@@ -184,11 +184,12 @@ checkDepartures = function() {
 	// if the taking off plane is above 10000ft, then route him
 	planes.forEach(function(plane) {
 		var p = G_objPlanes[plane]
-		if (p[16] == 'T' && p[4] > 10000) {
+		if (p[16] == 'T' && p[4] >= 10000) {
 			p['status'] = 'en route'
 			var req = G_arrNavObjects[p[13]][0]
 			if (p[11] != req) {
 				routePlane(plane + ' c ' + req)
+				setAltitude(plane, 25)
 			}
 		}
 	})
@@ -267,8 +268,10 @@ setWaypoint = function(plane, x, y) {
 
 setAltitude = function(plane, alt, expedite=false) {
 	var p = G_objPlanes[plane]
-	if (p[9] != alt*1000) {
-		routePlane(plane + ' c ' + alt + (expedite?' x':''))
+	if (!p.conflictCoolDown>0 || expedite) { // if we're in conflict, only allow an expedited altitude change (which should be coming from the de-conflictizer)
+		if (p[9] != alt*1000) {
+			routePlane(plane + ' c ' + alt + (expedite?' x':''))
+		}
 	}
 }
 
@@ -281,7 +284,7 @@ setSpeed= function(plane, speed) {
 
 
 
-// highlightPoints = []
+highlightPoints = []
 // for (var i=0; i<Xvertices[0].length; i++) {
 // 	highlightPoints.push({
 // 		fill: 'black',
@@ -294,6 +297,7 @@ setSpeed= function(plane, speed) {
 
 spacePlanes2 = function() {
 	var planes = Object.keys(G_objPlanes)
+
 	// first, check if we've lost any planes (accidentally flew off screen)
 	for (var i=0; i<northQueue.length; i++) {
 		if (planes.indexOf(northQueue[i]) == -1) {
@@ -305,6 +309,39 @@ spacePlanes2 = function() {
 			southQueue.splice(i, 1)
 		}
 	}
+
+	// pull out the list of planes in conflict and stagger them
+	conflicts = []
+	planes.forEach(function(plane) {
+		var p = G_objPlanes[plane]
+		if (p[18]) {
+			conflicts.push(plane)
+			p.conflictCoolDown = 10
+		} else if (p.conflictCoolDown > 0) {
+			p.conflictCoolDown -= 1
+		}
+	})
+	conflicts.forEach(function(me) {
+		for (var i=0; i<conflicts.length; i++) {
+			var other = conflicts[i]
+			if (other != me) {
+				p1 = G_objPlanes[me]
+				p2 = G_objPlanes[other]
+				if (Math.sqrt(Math.pow(p1[2]-p2[2], 2) + Math.pow(p1[3]-p2[3], 2)) < 75) {
+					if(p1[4] < p2[4]) {
+						console.log(me, Math.floor(p1[4]/1000), other, Math.ceil(p2[4]/1000))
+						setAltitude(me, Math.floor((p1[4]-1)/1000), true)
+						setAltitude(other, Math.ceil((p2[4]+1)/1000), true)
+					} else {
+						setAltitude(me, Math.ceil((p1[4]+1)/1000), true)
+						setAltitude(other, Math.floor((p2[4]-1)/1000), true)
+					}
+				}
+			}
+		}
+	})
+
+
 
 	planes.forEach(function(plane) {
 		var p = G_objPlanes[plane]
@@ -388,7 +425,7 @@ spacePlanes2 = function() {
 					}
 					// stagger the altitudes
 					p.alt = ((p.north?G_objPlanes[northQueue[sequence-1]].alt:G_objPlanes[southQueue[sequence-1]].alt) + 1) % 5
-					setAltitude(plane, p.alt+1+(p.north?northDownwindMaxAlt:southDownwindMaxAlt))
+					setAltitude(plane, p.alt+6)
 				}
 			} else if (p.leg == 'downwind') {
 				if (p[2]+24 < lineX/2 || p[2]+24 > lineX*1.5) {
