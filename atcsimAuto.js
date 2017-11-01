@@ -1,11 +1,11 @@
 
 
-incomingSpacing = 130 // target spacing between planes on approach
+incomingSpacing = 150 // target spacing between planes on approach
 minLandingSpacing = 40 // what's the minimum spacing between us and the plane in front, after landing clearance?
-takingOffPlaneSpeed = 100 // once the plane taking off in front has reached this speed, tell the next plane to start taking off
+takingOffPlaneSpeed = 110 // once the plane taking off in front has reached this speed, tell the next plane to start taking off
 planesAtOnce = 60 // minimum number of planes on screen to maintain at any given time
 innerPercentage = 0.12 // how far from the middle of the screen (the airport) do we want our waypoints?
-outerPercentage = 0.1 // how far from the outside edge of the screen do we want our waypoints?
+outerPercentage = 0.05 // how far from the outside edge of the screen do we want our waypoints?
 spacingPrecision = 20 // allowable deviation between the approach spacing
 spacingSteps = 100 // number of steps on each leg to evaluate the spacing computation
 waypointPrecision = 50 // how far away from each waypoint should we consider the plane to have arrived?
@@ -200,20 +200,16 @@ checkFlow = function() {
 		eastFlow = !eastFlow
 		calcLines()
 
-		var planes = Object.keys(G_objPlanes)
-		planes.forEach(function(plane) {
-			if (G_objPlanes[plane].leg != 'landing') {
-				delete G_objPlanes[plane].runway
-			}
-		})
+		northQueue.reverse()
+		southQueue.reverse()
 	}
 }
 
 
 checkArrivals = function() {
 	var planes = Object.keys(G_objPlanes)
-	var runN = eastFlow ? runwayNE : runwayNW
-	var runS = eastFlow ? runwaySE : runwaySW
+	runN = eastFlow ? runwayNE : runwayNW
+	runS = eastFlow ? runwaySE : runwaySW
 
 	// route the unrouted planes
 	planes.forEach(function(plane) {
@@ -226,12 +222,12 @@ checkArrivals = function() {
 				delete p.abort
 			}
 			if (north) {
-				p['runway'] = runN
 				p['north'] = true
+				p.alt = 0
 				northQueue.push(plane)
 			} else {
-				p['runway'] = runS
 				p['north'] = false
+				p.alt = 0
 				southQueue.push(plane)
 			}
 			p.leg = 'approach'
@@ -285,34 +281,30 @@ setSpeed= function(plane, speed) {
 
 
 
-highlightPoints = []
-for (var i=0; i<Xvertices[0].length; i++) {
-	highlightPoints.push({
-		fill: 'black',
-		r: 5,
-		x: Xvertices[0][i],
-		y: Yvertices[0][i]
-	})
-}
+// highlightPoints = []
+// for (var i=0; i<Xvertices[0].length; i++) {
+// 	highlightPoints.push({
+// 		fill: 'black',
+// 		r: 5,
+// 		x: Xvertices[0][i],
+// 		y: Yvertices[0][i]
+// 	})
+// }
 
-
-decrementPlaneSequences = function(north) {
-	var planes = Object.keys(G_objPlanes)
-	planes.forEach(function(plane) {
-		var p = G_objPlanes[plane]
-		if (p.leg == 'approach' && p.north == north) {
-			p.sequence -= 1
-		}
-	})
-	if (north) {
-		numNorthSequencePlanes -= 1
-	} else {
-		numSouthSequencePlanes -= 1
-	}
-}
 
 spacePlanes2 = function() {
 	var planes = Object.keys(G_objPlanes)
+	// first, check if we've lost any planes (accidentally flew off screen)
+	for (var i=0; i<northQueue.length; i++) {
+		if (planes.indexOf(northQueue[i]) == -1) {
+			northQueue.splice(i, 1)
+		}
+	}
+	for (var i=0; i<southQueue.length; i++) {
+		if (planes.indexOf(southQueue[i]) == -1) {
+			southQueue.splice(i, 1)
+		}
+	}
 
 	planes.forEach(function(plane) {
 		var p = G_objPlanes[plane]
@@ -325,6 +317,7 @@ spacePlanes2 = function() {
 					var dist = Math.sqrt(Math.pow(p[2]+24 - lineX,2) + Math.pow(p[3]+62-(p.north?northY:southY),2))
 					if (dist < waypointPrecision) {
 						p.leg = 'downwind'
+						p.runway = p.north ? runN : runS
 						routePlane(plane + ' c ' + (p.north?'NORTHDOWNWIND':'SOUTHDOWNWIND'))
 						if (p.north) {
 							northQueue.splice(0, 1)
@@ -394,10 +387,11 @@ spacePlanes2 = function() {
 						setSpeed(plane, 240)
 					}
 					// stagger the altitudes
-					setAltitude(plane, sequence+1+(p.north?northDownwindMaxAlt:southDownwindMaxAlt))
+					p.alt = ((p.north?G_objPlanes[northQueue[sequence-1]].alt:G_objPlanes[southQueue[sequence-1]].alt) + 1) % 5
+					setAltitude(plane, p.alt+1+(p.north?northDownwindMaxAlt:southDownwindMaxAlt))
 				}
 			} else if (p.leg == 'downwind') {
-				if (eastFlow ? p[2]+24 < lineX/2 : p[2]+24 > lineX*1.5) {
+				if (p[2]+24 < lineX/2 || p[2]+24 > lineX*1.5) {
 					p.leg = 'final'
 					p.landingAttempts = 0
 					setAltitude(plane, 2)
@@ -570,7 +564,7 @@ update = function() {
 			return 0
 		})
 	planes.selectAll('text')
-		.text(function(d) { return d.sequence>-1 ? '#' + d.sequence + ' | path: ' + Math.round(d.pathLength) + ' | des: ' + Math.round(d.desiredPathLength) : '' }) // + ' | dist0: ' + Math.round(d.dist0) + ' | dist1: ' + Math.round(d.dist1) + ' | dist2: ' + Math.round(d.dist2): '' })
+		.text(function(d) { return d.sequence>-1 ? '#' + d.sequence : '' }) // + ' | path: ' + Math.round(d.pathLength) + ' | des: ' + Math.round(d.desiredPathLength) : '' }) // + ' | dist0: ' + Math.round(d.dist0) + ' | dist1: ' + Math.round(d.dist1) + ' | dist2: ' + Math.round(d.dist2): '' })
 
 	// create new objects
 	planes.enter()
