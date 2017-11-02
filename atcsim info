@@ -1,6 +1,6 @@
 1:
-2:  current x coordinate?
-3:  current y coordinate?
+2:  current x coordinate
+3:  current y coordinate
 4:  current altitude
 5:  current heading
 6:  current speed
@@ -15,7 +15,7 @@
 15:
 16:  status?  arrival/wait/takeoff
 17:
-18: conflict?
+18:  conflict
 
 
 
