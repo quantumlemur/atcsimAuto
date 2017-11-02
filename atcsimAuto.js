@@ -2,8 +2,8 @@
 
 incomingSpacing = 150 // target spacing between planes on approach
 minLandingSpacing = 40 // what's the minimum spacing between us and the plane in front, after landing clearance?
-takingOffPlaneSpeed = 107 // once the plane taking off in front has reached this speed, tell the next plane to start taking off
-planesAtOnce = 50 // minimum number of planes on screen to maintain at any given time
+takingOffPlaneSpeed = 110 // once the plane taking off in front has reached this speed, tell the next plane to start taking off
+planesAtOnce = 100 // minimum number of planes on screen to maintain at any given time
 innerPercentage = 0.12 // how far from the middle of the screen (the airport) do we want our waypoints?
 outerPercentage = 0.08 // how far from the outside edge of the screen do we want our waypoints?
 spacingPrecision = 20 // allowable deviation between the approach spacing
@@ -18,7 +18,12 @@ abortAltitude = 10 // how high to climb in abort?
 
 
 
-highlightLines = []
+
+
+
+
+
+
 
 if (document.title == 'Atlanta Hartsfield-Jackson Intl.') {
 	runwayNE = '8L'
@@ -54,17 +59,15 @@ try {
 
 }
 
-takingOffPlane = ''
+highlightLines = []
 northDownwindMaxAlt = 0
 southDownwindMaxAlt = 0
 northQueue = window.northQueue ? northQueue : []
 southQueue = window.southQueue ? southQueue : []
 navcoords = {}
-eastFlow = intWind<180
+eastFlow = intWind < 180
 
 waypointIndexes = [-1, -1, -1, -1]
-
-
 
 
 calcLines = function() {
@@ -424,12 +427,12 @@ spacePlanes = function() {
 			}
 		} else if (p.leg == 'initialClimb') {
 			setAltitude(plane, initialClearanceAltitude, true)
-			setSpeed(plane, 600)
 			// if we're climbing and have reached clearance altitude, give final climb and waypoint clearance
 			if (p[4] >= initialClearanceAltitude*1000) {
 				p.leg = 'departure'
 			}
 		} else if (p.leg == 'departure') {
+			setSpeed(plane, 600)
 			setAltitude(plane, finalClearanceAltitude)
 			setNav(plane, G_arrNavObjects[p[13]][0])
 		} else if (p.leg == 'abort') {
@@ -453,6 +456,21 @@ spacePlanes = function() {
 			p.leg = 'approach'
 		}
 	})
+
+
+	// monitor the queues, and if one is overflowing and the other isn't, then switch a plane
+	if (northQueue.length > 0 && southQueue.length > 0) {
+		var lastNorth = northQueue[northQueue.length - 1]
+		var pN = G_objPlanes[lastNorth]
+		var lastSouth = southQueue[southQueue.length - 1]
+		var pS = G_objPlanes[lastSouth]
+		if (pN[10] == 160 && pS[10] != 160) {
+			abort(lastNorth)
+		} else 	if (pN[10] == 160 && pN[10] != 160) {
+			abort(lastSouth)
+		}
+	}
+
 
 
 	// now space the places that are on the downwind leg
@@ -544,18 +562,15 @@ spacePlanes = function() {
 abort = function(plane) {
 	plane = plane.toUpperCase()
 	if (!!G_objPlanes[plane]) {
+		var index = northQueue.indexOf(plane)
+		if (index != -1) {
+			northQueue.splice(index, 1)
+		}
+		index = southQueue.indexOf(plane)
+		if (index != -1) {
+			southQueue.splice(index, 1)
+		}
 		G_objPlanes[plane].leg = 'abort'
-
-		for (var i=0; i<northQueue.length; i++) {
-			if (northQueue.indexOf(plane) == -1) {
-				northQueue.splice(i, 1)
-			}
-		}
-		for (var i=0; i<southQueue.length; i++) {
-			if (southQueue.indexOf(plane) == -1) {
-				southQueue.splice(i, 1)
-			}
-		}
 	}
 }
 
@@ -617,6 +632,7 @@ update = function() {
 		.append('g')
 		.attr('class', 'plane')
 		.attr('transform', function(d) { return 'translate(' + (d[2]+24) + ',' + (d[3]+62) + ')' })
+		.on('click', function() { console.log('aaaah real monsters') })
 		.each(function(d) {
 			// d3.select(this)
 			// 	.append('circle')
@@ -641,7 +657,6 @@ update = function() {
 		})
 
 	planes.exit().remove()
-
 
 	var points = self.svg.selectAll('#highlight')
 		.data(highlightPoints)
