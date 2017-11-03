@@ -126,7 +126,6 @@ calcLines = function() {
 				lineX,
 				eastFlow?(1-outerPercentage)*maxX:outerPercentage*maxX,
 				eastFlow?(1-outerPercentage)*maxX:outerPercentage*maxX,
-				eastFlow?(1-outerPercentage)*maxX:outerPercentage*maxX,
 				eastFlow?outerPercentage*maxX:(1-outerPercentage)*maxX,
 				eastFlow?outerPercentage*maxX:(1-outerPercentage)*maxX,
 				eastFlow?2*outerPercentage*maxX:(1-2*outerPercentage)*maxX,
