@@ -10,7 +10,7 @@ spacingPrecision = 25 // allowable deviation between the approach spacing
 spacingSteps = 100 // number of steps on each leg to evaluate the spacing computation
 waypointPrecision = 50 // how far away from each waypoint should we consider the plane to have arrived?
 maxLandingAttempts = 100 // how many times should we try to land before we give up and put the plane back in sequence?
-initialClearanceAltitude = 11 // altitude to expedite climb after takeoff, in thousands of feet
+initialClearanceAltitude = 9 // altitude to expedite climb after takeoff, in thousands of feet
 finalClearanceAltitude = 20 // final altitude for departing aircraft to climb to, in thousands of feet
 abortAltitude = 11 // how high to climb in abort?
 
@@ -806,5 +806,5 @@ accelerate = setInterval(function() { if (intPlanesOnScreen < planesAtOnce) { in
 flowInterval = setInterval(checkFlow, 10000)
 conflictInterval = setInterval(deConflict, 1000)
 departureInterval = setInterval(checkDepartures, 1000)
-spaceInterval = setInterval(spacePlanes, 1000)
-updateInterval = setInterval(update, 100)
+spaceInterval = setInterval(spacePlanes, 5000)
+updateInterval = setInterval(update, 200)
