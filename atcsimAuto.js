@@ -2,7 +2,9 @@
 
 innerPercentage = 0.15 // how far from the middle of the screen (the airport) do we want our waypoints?
 outerPercentage = 0.1 // how far from the outside edge of the screen do we want our waypoints?
-planesAtOnce = 50 // minimum number of planes on screen to maintain at any given time
+planesAtOnce = 70 // minimum number of planes on screen to maintain at any given time
+
+simulationStepTime = 100 // time in ms between each simulation step.  Default is 1000
 
 incomingSpacing = 150 // target spacing between planes on approach
 minLandingSpacing = 30 // what's the minimum spacing between us and the plane in front, after landing clearance?
@@ -16,9 +18,6 @@ finalClearanceAltitude = 20 // final altitude for departing aircraft to climb to
 abortAltitude = 12 // how high to climb in abort?
 conflictCoolDownTime = 5 // time in seconds to disallow normal altitude or heading commands after a conflict
 numAltitudeSteps = 6 // number of discrete altitude steps on the approach path
-simulationStepTime = 100 // time in ms between each simulation step
-
-
 
 
 
@@ -539,7 +538,7 @@ spacePlanes = function() {
 			p.lastSpacingStep = spacingStep
 			if (dist2 < 100) { // now that we know where our intersection point should be, move it forward as we get closer to the line itself
 				p.onCourse = true
-				let numPointsAhead = Math.floor((100-dist2) / 5)
+				let numPointsAhead = Math.max(Math.floor((90-dist2) / 5), 0)
 				spacingStep -= numPointsAhead
 				if (spacingStep < 0) { // go around a corner if we need to
 					leg = leg - 1
@@ -611,7 +610,7 @@ spacePlanes = function() {
 			if (p[9] == intFieldElev) {
 				routePlane(plane + ' a')
 			}
-			setHeading(plane, p.north?'45':'135')
+			setHeading(plane, p.north?'280':'260')
 			setSpeed(plane, 240)
 			setAltitude(plane, abortAltitude + 5)
 			if (p[4] >= abortAltitude*1000) {
