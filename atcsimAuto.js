@@ -1,11 +1,12 @@
 
 
+innerPercentage = 0.15 // how far from the middle of the screen (the airport) do we want our waypoints?
+outerPercentage = 0.1 // how far from the outside edge of the screen do we want our waypoints?
+planesAtOnce = 50 // minimum number of planes on screen to maintain at any given time
+
 incomingSpacing = 150 // target spacing between planes on approach
 minLandingSpacing = 30 // what's the minimum spacing between us and the plane in front, after landing clearance?
 takingOffPlaneSpeed = 130 // once the plane taking off in front has reached this speed, tell the next plane to start taking off
-planesAtOnce = 100 // minimum number of planes on screen to maintain at any given time
-innerPercentage = 0.12 // how far from the middle of the screen (the airport) do we want our waypoints?
-outerPercentage = 0.08 // how far from the outside edge of the screen do we want our waypoints?
 spacingPrecision = 25 // allowable deviation between the approach spacing
 spacingSteps = 100 // number of steps on each leg to evaluate the spacing computation
 waypointPrecision = 50 // how far away from each waypoint should we consider the plane to have arrived?
@@ -76,6 +77,7 @@ waypointIndexes = [-1, -1, -1, -1]
 
 
 calcLines = function() {
+	highlightLines = []
 	// first, reset the number of planes in sequence
 	let planes = Object.keys(G_objPlanes)
 	planes.forEach(function(plane) {
@@ -109,47 +111,64 @@ calcLines = function() {
 				lineX,
 				eastFlow?(1-outerPercentage)*maxX:outerPercentage*maxX,
 				eastFlow?(1-outerPercentage)*maxX:outerPercentage*maxX,
-				eastFlow?3*outerPercentage*maxX:(1-3*outerPercentage)*maxX,
-				eastFlow?3*outerPercentage*maxX:(1-3*outerPercentage)*maxX,
-				eastFlow?(1-outerPercentage)*maxX:outerPercentage*maxX,
-				eastFlow?(1-outerPercentage)*maxX:outerPercentage*maxX,
 				eastFlow?outerPercentage*maxX:(1-outerPercentage)*maxX,
 				eastFlow?outerPercentage*maxX:(1-outerPercentage)*maxX,
+				eastFlow?2*outerPercentage*maxX:(1-2*outerPercentage)*maxX,
+				lineX,
+				eastFlow?(1-2*outerPercentage)*maxX:2*outerPercentage*maxX,
+				eastFlow?(1-2*outerPercentage)*maxX:2*outerPercentage*maxX,
+				eastFlow?2*outerPercentage*maxX:(1-2*outerPercentage)*maxX,
+				eastFlow?2*outerPercentage*maxX:(1-2*outerPercentage)*maxX,
+				lineX,
+				eastFlow?(1-3*outerPercentage)*maxX:3*outerPercentage*maxX,
 			],
 			[
 				lineX,
 				eastFlow?(1-outerPercentage)*maxX:outerPercentage*maxX,
 				eastFlow?(1-outerPercentage)*maxX:outerPercentage*maxX,
-				eastFlow?3*outerPercentage*maxX:(1-3*outerPercentage)*maxX,
-				eastFlow?3*outerPercentage*maxX:(1-3*outerPercentage)*maxX,
-				eastFlow?(1-outerPercentage)*maxX:outerPercentage*maxX,
 				eastFlow?(1-outerPercentage)*maxX:outerPercentage*maxX,
 				eastFlow?outerPercentage*maxX:(1-outerPercentage)*maxX,
 				eastFlow?outerPercentage*maxX:(1-outerPercentage)*maxX,
+				eastFlow?2*outerPercentage*maxX:(1-2*outerPercentage)*maxX,
+				lineX,
+				eastFlow?(1-2*outerPercentage)*maxX:2*outerPercentage*maxX,
+				eastFlow?(1-2*outerPercentage)*maxX:2*outerPercentage*maxX,
+				eastFlow?2*outerPercentage*maxX:(1-2*outerPercentage)*maxX,
+				eastFlow?2*outerPercentage*maxX:(1-2*outerPercentage)*maxX,
+				lineX,
+				eastFlow?(1-3*outerPercentage)*maxX:3*outerPercentage*maxX,
 			]
 		]
 	Yvertices = [
 			[
 				northY,
 				northY,
-				(outerPercentage*maxY+northY*2)/3,
-				(outerPercentage*maxY+northY*2)/3,
-				(outerPercentage*maxY*2+northY)/3,
-				(outerPercentage*maxY*2+northY)/3,
 				outerPercentage*maxY,
 				outerPercentage*maxY,
 				northY,
+				northY,
+				(northY*3+outerPercentage*maxY)/4,
+				(northY*3+outerPercentage*maxY)/4,
+				(northY+outerPercentage*maxY*3)/4,
+				(northY+outerPercentage*maxY*3)/4,
+				(northY*3+outerPercentage*maxY)/4,
+				(northY+outerPercentage*maxY)/2,
+				(northY+outerPercentage*maxY)/2,
 			],
 			[
 				southY, 
 				southY,
-				((1-outerPercentage)*maxY+southY*2)/3,
-				((1-outerPercentage)*maxY+southY*2)/3,
-				((1-outerPercentage)*maxY*2+southY)/3,
-				((1-outerPercentage)*maxY*2+southY)/3,
 				(1-outerPercentage)*maxY,
 				(1-outerPercentage)*maxY,
-				southY
+				southY,
+				southY,
+				((1-outerPercentage)*maxY+southY*3)/4,
+				((1-outerPercentage)*maxY+southY*3)/4,
+				((1-outerPercentage)*maxY*3+southY)/4,
+				((1-outerPercentage)*maxY*3+southY)/4,
+				((1-outerPercentage)*maxY+southY*3)/4,
+				((1-outerPercentage)*maxY+southY)/2,
+				((1-outerPercentage)*maxY+southY)/2,
 			]
 		]
 
@@ -229,7 +248,7 @@ checkFlow = function() {
 	}
 }
 
-setWaypoint = function(plane, x, y, deconflict=false) {
+setWaypoint = function(plane, x, y, deconflict=true) {
 	let p = G_objPlanes[plane]
 	if (!p.conflictCoolDown>0 || deconflict) { // if we're in conflict, only allow an altitude change from the de-conflictizer
 		if (!!p.waypoint) {
@@ -254,7 +273,7 @@ setWaypoint = function(plane, x, y, deconflict=false) {
 	}
 }
 
-setHeading = function(plane, heading, deconflict=false) {
+setHeading = function(plane, heading, deconflict=true) {
 	let p = G_objPlanes[plane]
 	if (!p.conflictCoolDown>0 || deconflict) { // if we're in conflict, only allow an altitude change from the de-conflictizer
 		if (p[8] != heading) {
@@ -362,7 +381,7 @@ deConflict = function() {
 					let ydelta = p1[3] - p2[3]
 					xdelta = xdelta / Math.sqrt(Math.pow(xdelta,2) + Math.pow(ydelta,2)) * 100
 					ydelta = ydelta / Math.sqrt(Math.pow(xdelta,2) + Math.pow(ydelta,2)) * 100
-					setWaypoint(me, p1[2]+24+xdelta, p1[3]+62+ydelta, true)
+					// setWaypoint(me, p1[2]+24+xdelta, p1[3]+62+ydelta, true)
 					// second, move vertically away from the other guy
 					if(p1[4] < p2[4]) {
 						setAltitude(me, Math.floor((p1[4]-1)/1000), true, true)
@@ -494,11 +513,11 @@ spacePlanes = function() {
 					leg = p.lastLeg
 					spacingStep = p.lastSpacingStep
 					// console.log('rejected', p[5], Math.round(theta), plane, leg, p.lastLeg, spacingStep, p.lastSpacingStep)
-					// highlightPoints.push({id:Math.random(), fill:'black', x:xp, y:yp, r:7, timeCreated:d.getTime()})
-					// highlightPoints.push({id:Math.random(), fill:'red', x:xi, y:yi, r:7, timeCreated:d.getTime()})
-					// highlightPoints.push({id:Math.random(), fill:'blue', x:p.lastXi, y:p.lastYi, r:7, timeCreated:d.getTime()})
-					// highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:xi, y2:yi, timeCreated:d.getTime(), stroke:'red'})
-					// highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:p.lastXi, y2:p.lastYi, timeCreated:d.getTime(), stroke:'blue'})
+					highlightPoints.push({id:Math.random(), fill:'black', x:xp, y:yp, r:7, timeCreated:d.getTime()})
+					highlightPoints.push({id:Math.random(), fill:'red', x:xi, y:yi, r:7, timeCreated:d.getTime()})
+					highlightPoints.push({id:Math.random(), fill:'blue', x:p.lastXi, y:p.lastYi, r:7, timeCreated:d.getTime()})
+					highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:xi, y2:yi, timeCreated:d.getTime(), stroke:'red'})
+					highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:p.lastXi, y2:p.lastYi, timeCreated:d.getTime(), stroke:'blue'})
 					xi = p.lastXi
 					yi = p.lastYi
 					dist0 = p.dist0
@@ -508,11 +527,11 @@ spacePlanes = function() {
 					diff = pathLength - desiredPathLength
 				} else {
 					// console.log('accepted', p[5], theta, plane, leg, p.lastLeg, spacingStep, p.lastSpacingStep)
-					// highlightPoints.push({id:Math.random(), fill:'green', x:xp, y:yp, r:5, timeCreated:d.getTime()})
-					// highlightPoints.push({id:Math.random(), fill:'green', x:xi, y:yi, r:5, timeCreated:d.getTime()})
-					// highlightPoints.push({id:Math.random(), fill:'green', x:p.lastXi, y:p.lastYi, r:5, timeCreated:d.getTime()})
-					// highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:xi, y2:yi, timeCreated:d.getTime(), stroke:'black'})
-					// highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:p.lastXi, y2:p.lastYi, timeCreated:d.getTime(), stroke:'black'})
+					highlightPoints.push({id:Math.random(), fill:'green', x:xp, y:yp, r:5, timeCreated:d.getTime()})
+					highlightPoints.push({id:Math.random(), fill:'green', x:xi, y:yi, r:5, timeCreated:d.getTime()})
+					highlightPoints.push({id:Math.random(), fill:'green', x:p.lastXi, y:p.lastYi, r:5, timeCreated:d.getTime()})
+					highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:xi, y2:yi, timeCreated:d.getTime(), stroke:'black'})
+					highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:p.lastXi, y2:p.lastYi, timeCreated:d.getTime(), stroke:'black'})
 				}
 			}
 			p.lastXi = xi
@@ -564,21 +583,14 @@ spacePlanes = function() {
 			setNav(plane, p.north?'NORTHDOWNWIND':'SOUTHDOWNWIND')
 			if (p[2]+24 < lineX/2 || p[2]+24 > lineX*1.5) {
 				p.leg = 'final'
-				p.landingAttempts = 0
-
 			}
 		} else if (p.leg == 'final') {
 			setAltitude(plane, 2)
 			setNav(plane, 'FINAL')
 			// if we've finished our turn and haven't started our final descent yet, then rey to land
-			if (p[5]==p[8] && p[9]>1999) {
-				routePlane(plane + ' l ' + (p.north?runN:runS))
+			if (p[5]==p[8]) {
 				p.leg = 'landing'
-				p.landingAttempts += 1
-				p.sequence = p.landingAttempts
-				if (p.landingAttempts > maxLandingAttempts) {
-					abort(plane)
-				}
+				p.landingAttempts = 0
 			}
 		} else if (p.leg == 'takingOff') {
 			if (p[4] > intFieldElev) {
@@ -600,12 +612,23 @@ spacePlanes = function() {
 			if (p[9] == intFieldElev) {
 				routePlane(plane + ' a')
 			}
-			setNav(plane, 'ABORT')
+			setHeading(plane, p.north?'45':'135')
 			setSpeed(plane, 240)
 			setAltitude(plane, abortAltitude + 5)
 			if (p[4] >= abortAltitude*1000) {
-				p.north = !p.north
 				delete p.leg
+			}
+		} else if (p.leg == 'landing') {
+			if (p[9] != intFieldElev) {
+				routePlane(plane + ' l ' + (p.north?runN:runS))
+				p.landingAttempts += 1
+			}
+			p.sequence = p.landingAttempts
+			if (p.landingAttempts > maxLandingAttempts) {
+				abort(plane)
+			}
+			if (p[12] == null) { // if the plane has made itself go around
+				abort(plane)
 			}
 		} else if (!p.leg && p[16]=='A') { // if don't have a leg assigned but we're an arrival (haven't been routed), then insert us into the approach sequence
 			// if we're north of the final waypoint
@@ -742,6 +765,7 @@ abort = function(plane) {
 		}
 		p.leg = 'abort'
 		p.onCourse = false
+		p.north = !p.north
 		delete p.sequence
 		delete p.lastLeg
 		delete p.lastSpacingStep
@@ -804,7 +828,7 @@ update = function() {
 			return 0
 		})
 	planes.selectAll('text')
-		.text(function(d) { return d.sequence>-1 ? d.sequence + ' | path: ' + Math.round(d.pathLength) + ' | des: ' + Math.round(d.desiredPathLength) + ' | dist2: ' + Math.round(d.dist2) : '' }) // + ' | dist0: ' + Math.round(d.dist0) + ' | dist1: ' + Math.round(d.dist1) + ' | dist2: ' + Math.round(d.dist2): '' })
+		.text(function(d) { return d.sequence>-1 ? d.sequence : '' }) // + ' | path: ' + Math.round(d.pathLength) + ' | des: ' + Math.round(d.desiredPathLength) + ' | dist2: ' + Math.round(d.dist2) : '' }) // + ' | dist0: ' + Math.round(d.dist0) + ' | dist1: ' + Math.round(d.dist1) + ' | dist2: ' + Math.round(d.dist2): '' })
 
 	// create new objects
 	planes.enter()
