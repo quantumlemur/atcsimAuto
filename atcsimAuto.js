@@ -13,6 +13,7 @@ maxLandingAttempts = 100 // how many times should we try to land before we give 
 initialClearanceAltitude = 9 // altitude to expedite climb after takeoff, in thousands of feet
 finalClearanceAltitude = 20 // final altitude for departing aircraft to climb to, in thousands of feet
 abortAltitude = 11 // how high to climb in abort?
+conflictCoolDownTime = 10 // time in seconds to disallow normal altitude or heading commands after a conflict
 
 
 
@@ -39,7 +40,7 @@ if (document.title == 'Atlanta Hartsfield-Jackson Intl.') {
 
 
 function dynamicallyLoadScript(url) {
-    var script = document.createElement("script"); // Make a script DOM node
+    let script = document.createElement("script"); // Make a script DOM node
     script.src = url; // Set it's src to the provided URL
     document.head.appendChild(script); // Add it to the end of the head section of the page (could change 'head' to 'body' to add it to the end of the body section instead)
 }
@@ -71,9 +72,9 @@ waypointIndexes = [-1, -1, -1, -1]
 
 calcLines = function() {
 	// first, reset the number of planes in sequence
-	var planes = Object.keys(G_objPlanes)
+	let planes = Object.keys(G_objPlanes)
 	planes.forEach(function(plane) {
-		var p = G_objPlanes[plane]
+		let p = G_objPlanes[plane]
 		if (p.leg == 'approach' && p.north) {
 			northQueue.push(plane)
 		} else if (p.leg == 'approach' && !p.north) {
@@ -155,9 +156,9 @@ calcLines = function() {
 	]
 
 	// find the indexes, if we haven't already
-	for (var i=0; i<waypointList.length; i++) {
+	for (let i=0; i<waypointList.length; i++) {
 		if (waypointIndexes[i] == -1) {
-			for (var j=0; j<G_arrNavObjects.length; j++) {
+			for (let j=0; j<G_arrNavObjects.length; j++) {
 				if (G_arrNavObjects[j][0] == waypointList[i][0]) {
 					waypointIndexes[i] = j
 					break
@@ -166,7 +167,7 @@ calcLines = function() {
 		}
 	}
 
-	for (var i=0; i<waypointList.length; i++) {
+	for (let i=0; i<waypointList.length; i++) {
 		if (waypointIndexes[i] == -1) {
 			waypointIndexes[i] = G_arrNavObjects.push(waypointList[i]) - 1
 		} else {
@@ -193,7 +194,7 @@ checkFlow = function() {
 		northQueue.reverse()
 		southQueue.reverse()
 
-		var planes = Object.keys(G_objPlanes)
+		let planes = Object.keys(G_objPlanes)
 		planes.forEach(function(plane) {
 			G_objPlanes[plane].lastLeg = 999999999
 			G_objPlanes[plane].lastSpacingStep = 999999999
@@ -202,12 +203,12 @@ checkFlow = function() {
 }
 
 setWaypoint = function(plane, x, y) {
-	var p = G_objPlanes[plane]
+	let p = G_objPlanes[plane]
 	if (!!p.waypoint) {
 		p.waypoint[2] = x
 		p.waypoint[3] = y
 	} else {
-		var temp = G_arrNavObjects.push([plane, 2, x, y])
+		let temp = G_arrNavObjects.push([plane, 2, x, y])
 		p.waypoint = G_arrNavObjects[temp-1]
 	}
 	if (p[11] != plane) {
@@ -216,7 +217,7 @@ setWaypoint = function(plane, x, y) {
 }
 
 setAltitude = function(plane, alt, expedite=false, deconflict=false) {
-	var p = G_objPlanes[plane]
+	let p = G_objPlanes[plane]
 	if (!p.conflictCoolDown>0 || deconflict) { // if we're in conflict, only allow an altitude change from the de-conflictizer
 		if (p[9] != alt*1000) {
 			routePlane(plane + ' c ' + alt + (expedite?' x':''))
@@ -225,14 +226,14 @@ setAltitude = function(plane, alt, expedite=false, deconflict=false) {
 }
 
 setSpeed = function(plane, speed) {
-	var p = G_objPlanes[plane]
+	let p = G_objPlanes[plane]
 	if (p[10] != speed) {
 		routePlane(plane + ' s ' + speed)
 	}
 }
 
 setNav = function(plane, nav, direction='') {
-	var p = G_objPlanes[plane]
+	let p = G_objPlanes[plane]
 	if (p[11] != nav) {
 		routePlane(plane + ' c ' + nav + ' ' + direction)
 	}
@@ -240,7 +241,7 @@ setNav = function(plane, nav, direction='') {
 
 
 highlightPoints = []
-for (var i=0; i<Xvertices[0].length; i++) {
+for (let i=0; i<Xvertices[0].length; i++) {
 	highlightPoints.push({
 		fill: 'black',
 		r: 5,
@@ -252,12 +253,12 @@ for (var i=0; i<Xvertices[0].length; i++) {
 }
 
 checkDepartures = function() {
-	var planes = Object.keys(G_objPlanes)
-	var waitingPlane = ''
-	var takingOffPlane = ''
+	let planes = Object.keys(G_objPlanes)
+	let waitingPlane = ''
+	let takingOffPlane = ''
 
 	planes.forEach(function(plane) {
-		var p = G_objPlanes[plane]
+		let p = G_objPlanes[plane]
 		if (p.leg == 'takingOff') {
 			takingOffPlane = plane
 		}
@@ -268,7 +269,7 @@ checkDepartures = function() {
 
 	// if the taking off plane is above the ground, then set him on initial climb
 	if (takingOffPlane) {
-		var p = G_objPlanes[takingOffPlane]
+		let p = G_objPlanes[takingOffPlane]
 		if (p[4] > intFieldElev) {
 			p.leg = 'initialClimb'
 			takingOffPlane = ''
@@ -279,15 +280,15 @@ checkDepartures = function() {
 	if ((!takingOffPlane || G_objPlanes[takingOffPlane][6]>takingOffPlaneSpeed)&& !!waitingPlane) {
 		takingOffPlane = waitingPlane
 		waitingPlane = ''
-		var p = G_objPlanes[takingOffPlane]
+		let p = G_objPlanes[takingOffPlane]
 		p.leg = 'takingOff'
 		routePlane(takingOffPlane + ' t')
 	}
 
 	// if nobody's waiting, then send one to line up and wait
 	if (!waitingPlane) {
-		for (var i=0; i<planes.length; i++) {
-			var p = G_objPlanes[planes[i]]
+		for (let i=0; i<planes.length; i++) {
+			let p = G_objPlanes[planes[i]]
 			if(!p.leg && !p['runway'] && p[16] == 'D') {
 				p.leg = 'waiting'
 				routePlane(planes[i] + ' c 24 c ' + (eastFlow?'090':'270') + ' w')
@@ -301,19 +302,19 @@ checkDepartures = function() {
 deConflict = function() {
 	// pull out the list of planes in conflict and stagger them
 	conflicts = []
-	var planes = Object.keys(G_objPlanes)
+	let planes = Object.keys(G_objPlanes)
 	planes.forEach(function(plane) {
-		var p = G_objPlanes[plane]
+		let p = G_objPlanes[plane]
 		if (p[18]) {
 			conflicts.push(plane)
-			p.conflictCoolDown = 20
+			p.conflictCoolDown = conflictCoolDownTime
 		} else if (p.conflictCoolDown > 0) {
 			p.conflictCoolDown -= 1
 		}
 	})
 	conflicts.forEach(function(me) {
-		for (var i=0; i<conflicts.length; i++) {
-			var other = conflicts[i]
+		for (let i=0; i<conflicts.length; i++) {
+			let other = conflicts[i]
 			if (other != me) {
 				p1 = G_objPlanes[me]
 				p2 = G_objPlanes[other]
@@ -333,23 +334,23 @@ deConflict = function() {
 
 
 spacePlanes = function() {
-	var planes = Object.keys(G_objPlanes)
-	var planeIsRolling = false
-	var planeIsWaiting = false
+	let planes = Object.keys(G_objPlanes)
+	let planeIsRolling = false
+	let planeIsWaiting = false
 
 	// first, check if we've lost any planes (accidentally flew off screen)
-	for (var i=0; i<northQueue.length; i++) {
+	for (let i=0; i<northQueue.length; i++) {
 		if (planes.indexOf(northQueue[i]) == -1) {
 			northQueue.splice(i, 1)
 		}
 	}
-	for (var i=0; i<southQueue.length; i++) {
+	for (let i=0; i<southQueue.length; i++) {
 		if (planes.indexOf(southQueue[i]) == -1) {
 			southQueue.splice(i, 1)
 		}
 	}
 	// make sure there aren't any duplicates in the queues...
-	var i = 1
+	let i = 1
 	while (i < northQueue.length) {
 		if (northQueue[i] == northQueue[i-1]) {
 			northQueue.splice(i, 1)
@@ -357,7 +358,7 @@ spacePlanes = function() {
 			i += 1
 		}
 	}
-	var i = 1
+	i = 1
 	while (i < southQueue.length) {
 		if (southQueue[i] == southQueue[i-1]) {
 			southQueue.splice(i, 1)
@@ -368,8 +369,8 @@ spacePlanes = function() {
 
 
 	planes.forEach(function(plane) {
-		var d = new Date()
-		var t = d.getTime()
+		let d = new Date()
+		let t = d.getTime()
 		if (highlightPoints.length>0 && t - highlightPoints[0].timeCreated > 10*1000) {
 			highlightPoints.splice(0,1)
 		}
@@ -378,13 +379,13 @@ spacePlanes = function() {
 		}
 
 
-		var p = G_objPlanes[plane]
+		let p = G_objPlanes[plane]
 		if (p.leg == 'approach') {
-			var sequence = p.north ? northQueue.indexOf(plane) : southQueue.indexOf(plane)
+			let sequence = p.north ? northQueue.indexOf(plane) : southQueue.indexOf(plane)
 			p.sequence = sequence
 			// first find the length of the downwind leg
 			if (sequence == 0) {
-				var dist = Math.sqrt(Math.pow(p[2]+24 - lineX,2) + Math.pow(p[3]+62-(p.north?northY:southY),2))
+				let dist = Math.sqrt(Math.pow(p[2]+24 - lineX,2) + Math.pow(p[3]+62-(p.north?northY:southY),2))
 				if (dist < waypointPrecision) {
 					p.leg = 'downwind'
 					p.runway = p.north ? runN : runS
@@ -401,23 +402,23 @@ spacePlanes = function() {
 					setAltitude(plane, sequence+1+(p.north?northDownwindMaxAlt:southDownwindMaxAlt))
 				}
 			} else {
-				var xp = p[2] + 24 // plane X
-				var yp = p[3] + 62 // plane Y
-				var desiredPathLength = incomingSpacing*sequence + (p.north?G_objPlanes[northQueue[0]].pathLength:G_objPlanes[southQueue[0]].pathLength)
-				var diff = 0
-				var prevDiff = 9999999
-				var xi = 0 // intersection X
-				var yi = 0 // intersection Y
-				var dist0 = 0 // sum of previous legs
-				var dist1 = 0 // distance along current leg
-				var dist2 = 0 // distance from intersection to plane
-				var leg = 0 // which leg are we on
-				var spacingStep = 0 // which spacing step are we on
+				let xp = p[2] + 24 // plane X
+				let yp = p[3] + 62 // plane Y
+				let desiredPathLength = incomingSpacing*sequence + (p.north?G_objPlanes[northQueue[0]].pathLength:G_objPlanes[southQueue[0]].pathLength)
+				let diff = 0
+				let prevDiff = 9999999
+				let xi = 0 // intersection X
+				let yi = 0 // intersection Y
+				let dist0 = 0 // sum of previous legs
+				let dist1 = 0 // distance along current leg
+				let dist2 = 0 // distance from intersection to plane
+				let leg = 0 // which leg are we on
+				let spacingStep = 0 // which spacing step are we on
 
-				var pathLength = 0
+				let pathLength = 0
 				for (leg=0; leg<Xvertices[p.north?0:1].length-1; leg++) {
-					var Xstep = (Xvertices[p.north?0:1][leg+1] - Xvertices[p.north?0:1][leg]) / spacingSteps
-					var Ystep = (Yvertices[p.north?0:1][leg+1] - Yvertices[p.north?0:1][leg]) / spacingSteps
+					let Xstep = (Xvertices[p.north?0:1][leg+1] - Xvertices[p.north?0:1][leg]) / spacingSteps
+					let Ystep = (Yvertices[p.north?0:1][leg+1] - Yvertices[p.north?0:1][leg]) / spacingSteps
 					for (spacingStep=0; spacingStep<spacingSteps; spacingStep++) {
 						xi = Xvertices[p.north?0:1][leg] + Xstep*spacingStep
 						yi = Yvertices[p.north?0:1][leg] + Ystep*spacingStep
@@ -440,8 +441,8 @@ spacePlanes = function() {
 
 				// if we want to make the path longer, only allow it if it's within 30 degrees of where we're already supposed to be pointing
 				if (leg >= p.lastLeg && spacingStep > p.lastSpacingStep) { // if we're trying to lengthen the path
-					var theta = (Math.atan2(xi-xp, yp-yi) * 180 / Math.PI + 360) % 360
-					var d = new Date()
+					let theta = (Math.atan2(xi-xp, yp-yi) * 180 / Math.PI + 360) % 360
+					let d = new Date()
 					if ((p[5]-theta)%360 > 30 && (p[5]-theta)%360 < 330) { // if the angle is greater than 30 degrees from before
 						// then set the point back to where it was
 						leg = p.lastLeg
@@ -555,10 +556,10 @@ spacePlanes = function() {
 
 	// monitor the queues, and if one is overflowing and the other isn't, then switch a plane
 	if (northQueue.length > 0 && southQueue.length > 0) {
-		var lastNorth = northQueue[northQueue.length - 1]
-		var pN = G_objPlanes[lastNorth]
-		var lastSouth = southQueue[southQueue.length - 1]
-		var pS = G_objPlanes[lastSouth]
+		let lastNorth = northQueue[northQueue.length - 1]
+		let pN = G_objPlanes[lastNorth]
+		let lastSouth = southQueue[southQueue.length - 1]
+		let pS = G_objPlanes[lastSouth]
 		if (pN[10] == 160 && pS[10] != 160) {
 			abort(lastNorth)
 		} else 	if (pN[10] == 160 && pN[10] != 160) {
@@ -569,17 +570,17 @@ spacePlanes = function() {
 
 
 	// now space the places that are on the downwind leg
-	var waypoints = ['NORTHDOWNWIND', 'SOUTHDOWNWIND']
-	for (var w=0; w<waypoints.length; w++) {
-		var waypoint = waypoints[w]
-		var wx = eastFlow ? lineX/2 : lineX*1.5
-		var wy = waypoint=='NORTHDOWNWIND' ? northY : southY
-		var queue = []
+	let waypoints = ['NORTHDOWNWIND', 'SOUTHDOWNWIND']
+	for (let w=0; w<waypoints.length; w++) {
+		let waypoint = waypoints[w]
+		let wx = eastFlow ? lineX/2 : lineX*1.5
+		let wy = waypoint=='NORTHDOWNWIND' ? northY : southY
+		let queue = []
 		// pull out the planes flying to my waypoint, and calculate their distance
 		planes.forEach(function(plane) {
-			var p = G_objPlanes[plane]
+			let p = G_objPlanes[plane]
 			if (p[11] == waypoint) {
-				var dist = Math.sqrt(Math.pow(p[2]+24-wx,2) + Math.pow(p[3]+62-wy,2))
+				let dist = Math.sqrt(Math.pow(p[2]+24-wx,2) + Math.pow(p[3]+62-wy,2))
 				queue.push({'plane': plane, 'dist': dist})
 			}
 		})
@@ -588,10 +589,10 @@ spacePlanes = function() {
 			return a.dist - b.dist
 		})
 
-		for (var i=0; i<queue.length; i++) {
-			var p = queue[i]
-			var desired = i*incomingSpacing
-			var diff = p.dist - queue[0].dist - desired
+		for (let i=0; i<queue.length; i++) {
+			let p = queue[i]
+			let desired = i*incomingSpacing
+			let diff = p.dist - queue[0].dist - desired
 			G_objPlanes[p.plane].sequence = i
 			G_objPlanes[p.plane].dist = p.dist
 			G_objPlanes[p.plane].desired = desired
@@ -618,17 +619,17 @@ spacePlanes = function() {
 
 
 	// now monitor the landing planes for spacing
-	var waypoints = [runwayNE, runwayNW, runwaySE, runwaySW]
-	for (var w=0; w<waypoints.length; w++) {
+	waypoints = [runwayNE, runwayNW, runwaySE, runwaySW]
+	for (let w=0; w<waypoints.length; w++) {
 		let waypoint = waypoints[w]
-		var wx = lineX
-		var wy = midY
-		var queue = []
+		let wx = lineX
+		let wy = midY
+		let queue = []
 		// pull out the planes flying to my waypoint, and calculate their distance
 		planes.forEach(function(plane) {
-			var p = G_objPlanes[plane]
+			let p = G_objPlanes[plane]
 			if (p[11] == waypoint) {
-				var dist = Math.sqrt(Math.pow(p[2]+24-wx,2) + Math.pow(p[3]+62-wy,2))
+				let dist = Math.sqrt(Math.pow(p[2]+24-wx,2) + Math.pow(p[3]+62-wy,2))
 				queue.push({'plane': plane, 'dist': dist})
 			}
 		})
@@ -638,9 +639,9 @@ spacePlanes = function() {
 		})
 
 		// console.log(waypoint, queue)
-		for (var i=1; i<queue.length; i++) {
-			var p = queue[i]
-			var diff = p.dist - queue[i-1].dist
+		for (let i=1; i<queue.length; i++) {
+			let p = queue[i]
+			let diff = p.dist - queue[i-1].dist
 			G_objPlanes[p.plane].sequence = i
 			G_objPlanes[p.plane].diff = diff
 			// abort landing if too close to the plane in front
@@ -657,8 +658,8 @@ spacePlanes = function() {
 abort = function(plane) {
 	plane = plane.toUpperCase()
 	if (!!G_objPlanes[plane]) {
-		var p = G_objPlanes[plane]
-		var index = northQueue.indexOf(plane)
+		let p = G_objPlanes[plane]
+		let index = northQueue.indexOf(plane)
 		if (index != -1) {
 			northQueue.splice(index, 1)
 		}
@@ -686,18 +687,18 @@ colorscale = d3.scaleOrdinal(d3.schemecategory10)
 
 update = function() {
 
-	var d = new Date()
-	var t = d.getTime()
+	let d = new Date()
+	let t = d.getTime()
 
 	// convert planes dict into list
 	data = []
 	Object.keys(G_objPlanes).forEach(function(plane) {
-		var out = G_objPlanes[plane]
+		let out = G_objPlanes[plane]
 		out.name = plane
 		data.push(out)
 	})
 
-	var planes = self.svg.selectAll('g')
+	let planes = self.svg.selectAll('g')
 		.data(data, function(d) { return d.name })
 
 	// apply updates
@@ -709,7 +710,7 @@ update = function() {
 		.attr('y1', function(d) { return 0 })
 		.attr('x2', function(d) {
 			if (d[16]=='A' ) {
-				for (var i=0; i<G_arrNavObjects.length; i++) {
+				for (let i=0; i<G_arrNavObjects.length; i++) {
 					if (G_arrNavObjects[i][0] == d[11]) {
 						return G_arrNavObjects[i][2] - d[2]-24
 					}
@@ -719,7 +720,7 @@ update = function() {
 		})
 		.attr('y2', function(d) {
 			if (d[16]=='A' ) {
-				for (var i=0; i<G_arrNavObjects.length; i++) {
+				for (let i=0; i<G_arrNavObjects.length; i++) {
 					if (G_arrNavObjects[i][0] == d[11]) {
 						return G_arrNavObjects[i][3] - d[3]-62
 					}
@@ -761,7 +762,7 @@ update = function() {
 
 	planes.exit().remove()
 
-	var points = self.svg.selectAll('#highlight')
+	let points = self.svg.selectAll('#highlight')
 		.data(highlightPoints, function(d) { return d.id })
 
 	points.enter()
@@ -781,7 +782,7 @@ update = function() {
 	points.exit().remove()
 
 
-	var lines = self.svg.selectAll('#line')
+	let lines = self.svg.selectAll('#line')
 		.data(highlightLines, function(d) { return d.id })
 
 	lines.enter()
