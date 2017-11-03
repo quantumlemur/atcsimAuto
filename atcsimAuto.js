@@ -1,16 +1,16 @@
 
 
 incomingSpacing = 150 // target spacing between planes on approach
-minLandingSpacing = 40 // what's the minimum spacing between us and the plane in front, after landing clearance?
-takingOffPlaneSpeed = 120 // once the plane taking off in front has reached this speed, tell the next plane to start taking off
-planesAtOnce = 150 // minimum number of planes on screen to maintain at any given time
+minLandingSpacing = 30 // what's the minimum spacing between us and the plane in front, after landing clearance?
+takingOffPlaneSpeed = 130 // once the plane taking off in front has reached this speed, tell the next plane to start taking off
+planesAtOnce = 100 // minimum number of planes on screen to maintain at any given time
 innerPercentage = 0.12 // how far from the middle of the screen (the airport) do we want our waypoints?
 outerPercentage = 0.08 // how far from the outside edge of the screen do we want our waypoints?
 spacingPrecision = 25 // allowable deviation between the approach spacing
 spacingSteps = 100 // number of steps on each leg to evaluate the spacing computation
 waypointPrecision = 50 // how far away from each waypoint should we consider the plane to have arrived?
 maxLandingAttempts = 100 // how many times should we try to land before we give up and put the plane back in sequence?
-initialClearanceAltitude = 9 // altitude to expedite climb after takeoff, in thousands of feet
+initialClearanceAltitude = 10 // altitude to expedite climb after takeoff, in thousands of feet
 finalClearanceAltitude = 20 // final altitude for departing aircraft to climb to, in thousands of feet
 abortAltitude = 12 // how high to climb in abort?
 conflictCoolDownTime = 5 // time in seconds to disallow normal altitude or heading commands after a conflict
@@ -43,7 +43,7 @@ if (document.title == 'Atlanta Hartsfield-Jackson Intl.') {
 
 function dynamicallyLoadScript(url) {
     let script = document.createElement("script"); // Make a script DOM node
-    script.src = url; // Set it's src to the provided URL
+    script.src = url; // Set its src to the provided URL
     document.head.appendChild(script); // Add it to the end of the head section of the page (could change 'head' to 'body' to add it to the end of the body section instead)
 }
 
@@ -236,8 +236,17 @@ setWaypoint = function(plane, x, y, deconflict=false) {
 			p.waypoint[2] = x
 			p.waypoint[3] = y
 		} else {
-			let temp = G_arrNavObjects.push([plane, 2, x, y])
-			p.waypoint = G_arrNavObjects[temp-1]
+			for (let i=0; i<G_arrNavObjects.length; i++) {
+				if (G_arrNavObjects[i][0] == plane) {
+					G_arrNavObjects[i] = [plane, 2, x, y]
+					p.waypoint = G_arrNavObjects[i]
+					break
+				}
+			}
+			if (!p.waypoint) {
+				let temp = G_arrNavObjects.push([plane, 2, x, y])
+				p.waypoint = G_arrNavObjects[temp-1]
+			}
 		}
 		if (p[11] != plane) {
 			routePlane(plane + ' c ' + plane)
@@ -326,6 +335,8 @@ checkDepartures = function() {
 
 
 deConflict = function() {
+	let d = new Date()
+	let t = d.getTime()
 	// pull out the list of planes in conflict and stagger them
 	conflicts = []
 	let planes = Object.keys(G_objPlanes)
@@ -339,6 +350,7 @@ deConflict = function() {
 		}
 	})
 	conflicts.forEach(function(me) {
+		highlightPoints.push({id:Math.random(), fill:'red', x:G_objPlanes[me][2]+24, y:G_objPlanes[me][3]+62, r:7, timeCreated:t})
 		for (let i=0; i<conflicts.length; i++) {
 			let other = conflicts[i]
 			if (other != me) {
@@ -350,7 +362,7 @@ deConflict = function() {
 					let ydelta = p1[3] - p2[3]
 					xdelta = xdelta / Math.sqrt(Math.pow(xdelta,2) + Math.pow(ydelta,2)) * 100
 					ydelta = ydelta / Math.sqrt(Math.pow(xdelta,2) + Math.pow(ydelta,2)) * 100
-					// setWaypoint(me, p1[2]+24+xdelta, p1[3]+62+ydelta, true)
+					setWaypoint(me, p1[2]+24+xdelta, p1[3]+62+ydelta, true)
 					// second, move vertically away from the other guy
 					if(p1[4] < p2[4]) {
 						setAltitude(me, Math.floor((p1[4]-1)/1000), true, true)
@@ -404,10 +416,10 @@ spacePlanes = function() {
 	planes.forEach(function(plane) {
 		let d = new Date()
 		let t = d.getTime()
-		if (highlightPoints.length>0 && t - highlightPoints[0].timeCreated > 10*1000) {
+		if (highlightPoints.length>0 && t - highlightPoints[0].timeCreated > 5*1000) {
 			highlightPoints.splice(0,1)
 		}
-		if (highlightLines.length>0 && t - highlightLines[0].timeCreated > 10*1000) {
+		if (highlightLines.length>0 && t - highlightLines[0].timeCreated > 5*1000) {
 			highlightLines.splice(0,1)
 		}
 
@@ -415,6 +427,7 @@ spacePlanes = function() {
 		let p = G_objPlanes[plane]
 		if (p.leg == 'approach') {
 			let sequence = p.north ? northQueue.indexOf(plane) : southQueue.indexOf(plane)
+			let desiredPathLength = 0
 			p.sequence = sequence
 			// first find the length of the downwind leg
 			if (sequence == 0) {
@@ -428,133 +441,135 @@ spacePlanes = function() {
 					} else {
 						southQueue.splice(0, 1)
 					}
-				} else {
-					p.pathLength = dist
-					p.desiredPathLength = dist
-					setWaypoint(plane, Xvertices[p.north?0:1][0], Yvertices[p.north?0:1][0])
-					setAltitude(plane, sequence+1+(p.north?northDownwindMaxAlt:southDownwindMaxAlt))
 				}
+				desiredPathLength = dist
 			} else {
-				let xp = p[2] + 24 // plane X
-				let yp = p[3] + 62 // plane Y
-				let desiredPathLength = incomingSpacing*sequence + (p.north?G_objPlanes[northQueue[0]].pathLength:G_objPlanes[southQueue[0]].pathLength)
-				let diff = 0
-				let prevDiff = 9999999
-				let xi = 0 // intersection X
-				let yi = 0 // intersection Y
-				let dist0 = 0 // sum of previous legs
-				let dist1 = 0 // distance along current leg
-				let dist2 = 0 // distance from intersection to plane
-				let leg = 0 // which leg are we on
-				let spacingStep = 0 // which spacing step are we on
-				let Xstep = 0
-				let Ystep = 0
+				p.alt = ((p.north?G_objPlanes[northQueue[sequence-1]].alt:G_objPlanes[southQueue[sequence-1]].alt) + 1) % numAltitudeSteps
+				desiredPathLength = incomingSpacing*sequence + (p.north?G_objPlanes[northQueue[0]].pathLength:G_objPlanes[southQueue[0]].pathLength)
+			}
+			let xp = p[2] + 24 // plane X
+			let yp = p[3] + 62 // plane Y
+			let diff = 0
+			let prevDiff = 9999999
+			let xi = 0 // intersection X
+			let yi = 0 // intersection Y
+			let dist0 = 0 // sum of previous legs
+			let dist1 = 0 // distance along current leg
+			let dist2 = 0 // distance from intersection to plane
+			let leg = 0 // which leg are we on
+			let spacingStep = 0 // which spacing step are we on
+			let Xstep = 0
+			let Ystep = 0
 
-				let pathLength = 0
-				for (leg=0; leg<Xvertices[p.north?0:1].length-1; leg++) {
-					Xstep = (Xvertices[p.north?0:1][leg+1] - Xvertices[p.north?0:1][leg]) / spacingSteps
-					Ystep = (Yvertices[p.north?0:1][leg+1] - Yvertices[p.north?0:1][leg]) / spacingSteps
-					for (spacingStep=0; spacingStep<spacingSteps; spacingStep++) {
-						xi = Xvertices[p.north?0:1][leg] + Xstep*spacingStep
-						yi = Yvertices[p.north?0:1][leg] + Ystep*spacingStep
-						dist1 = Math.sqrt(Math.pow(Xvertices[p.north?0:1][leg]-xi, 2) + Math.pow(Yvertices[p.north?0:1][leg]-yi, 2))
-						dist2 = Math.sqrt(Math.pow(xi-xp, 2) + Math.pow(yi-yp, 2))
-						pathLength = dist0 + dist1 + dist2
-						diff = pathLength - desiredPathLength
-						if (Math.abs(diff) > Math.abs(prevDiff)) { // if we've found a path long enough, but also don't make the path longer than it already is, to prevent planes backtracking (unless we need to go more than 500 units longer)
-							break
-						}
-						prevDiff = diff
-					}
-					// if we get here, we've either gotten to the end of the current leg or we've found the correct length
-					if (Math.abs(diff) > Math.abs(prevDiff)) { // if we've found the correct length
-						break
-					} else {
-						dist0 += Math.sqrt(Math.pow(Xvertices[p.north?0:1][leg]-Xvertices[p.north?0:1][leg+1], 2) + Math.pow(Yvertices[p.north?0:1][leg]-Yvertices[p.north?0:1][leg+1], 2))
-					}
-				}
-
-				// if we want to make the path longer, only allow it if it's within 30 degrees of where we're already supposed to be pointing
-				if (leg >= p.lastLeg && spacingStep > p.lastSpacingStep) { // if we're trying to lengthen the path
-					let theta = (Math.atan2(xi-xp, yp-yi) * 180 / Math.PI + 360) % 360
-					let d = new Date()
-					if ((p[5]-theta)%360 > 10 && (p[5]-theta)%360 < 350) { // if the angle is greater than 30 degrees from before
-						// then set the point back to where it was
-						leg = p.lastLeg
-						spacingStep = p.lastSpacingStep
-						// console.log('rejected', p[5], Math.round(theta), plane, leg, p.lastLeg, spacingStep, p.lastSpacingStep)
-						highlightPoints.push({id:Math.random(), fill:'black', x:xp, y:yp, r:7, timeCreated:d.getTime()})
-						highlightPoints.push({id:Math.random(), fill:'red', x:xi, y:yi, r:7, timeCreated:d.getTime()})
-						highlightPoints.push({id:Math.random(), fill:'blue', x:p.lastXi, y:p.lastYi, r:7, timeCreated:d.getTime()})
-						highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:xi, y2:yi, timeCreated:d.getTime(), stroke:'red'})
-						highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:p.lastXi, y2:p.lastYi, timeCreated:d.getTime(), stroke:'blue'})
-						xi = p.lastXi
-						yi = p.lastYi
-						dist0 = p.dist0
-						dist1 = p.dist1
-						dist2 = Math.sqrt(Math.pow(xi-xp, 2) + Math.pow(yi-yp, 2))
-						pathLength = dist0 + dist1 + dist2
-						diff = pathLength - desiredPathLength
-					} else {
-						// console.log('accepted', p[5], theta, plane, leg, p.lastLeg, spacingStep, p.lastSpacingStep)
-						highlightPoints.push({id:Math.random(), fill:'green', x:xp, y:yp, r:5, timeCreated:d.getTime()})
-						highlightPoints.push({id:Math.random(), fill:'green', x:xi, y:yi, r:5, timeCreated:d.getTime()})
-						highlightPoints.push({id:Math.random(), fill:'green', x:p.lastXi, y:p.lastYi, r:5, timeCreated:d.getTime()})
-						highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:xi, y2:yi, timeCreated:d.getTime(), stroke:'black'})
-						highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:p.lastXi, y2:p.lastYi, timeCreated:d.getTime(), stroke:'black'})
-					}
-				}
-				p.lastXi = xi
-				p.lastYi = yi
-				p.lastLeg = leg
-				p.lastSpacingStep = spacingStep
-				// now that we know where our intersection point should be, move it forward as we get closer to the line itself
-				if (dist2 < 100) {
-					let numPointsAhead = Math.floor((100-dist2) / 5)
-					spacingStep -= numPointsAhead
-					if (spacingStep < 0) { // go around a corner if we need to
-						leg = Math.max(leg-1, 0)
-						spacingStep += spacingSteps
-						Xstep = (Xvertices[p.north?0:1][leg+1] - Xvertices[p.north?0:1][leg]) / spacingSteps
-						Ystep = (Yvertices[p.north?0:1][leg+1] - Yvertices[p.north?0:1][leg]) / spacingSteps
-					}
+			let pathLength = 0
+			for (leg=0; leg<Xvertices[p.north?0:1].length-1; leg++) {
+				Xstep = (Xvertices[p.north?0:1][leg+1] - Xvertices[p.north?0:1][leg]) / spacingSteps
+				Ystep = (Yvertices[p.north?0:1][leg+1] - Yvertices[p.north?0:1][leg]) / spacingSteps
+				for (spacingStep=0; spacingStep<spacingSteps; spacingStep++) {
 					xi = Xvertices[p.north?0:1][leg] + Xstep*spacingStep
 					yi = Yvertices[p.north?0:1][leg] + Ystep*spacingStep
+					dist1 = Math.sqrt(Math.pow(Xvertices[p.north?0:1][leg]-xi, 2) + Math.pow(Yvertices[p.north?0:1][leg]-yi, 2))
+					dist2 = Math.sqrt(Math.pow(xi-xp, 2) + Math.pow(yi-yp, 2))
+					pathLength = dist0 + dist1 + dist2
+					diff = pathLength - desiredPathLength
+					if (Math.abs(diff) > Math.abs(prevDiff)) { // if we've found a path long enough, but also don't make the path longer than it already is, to prevent planes backtracking (unless we need to go more than 500 units longer)
+						break
+					}
+					prevDiff = diff
 				}
-				setWaypoint(plane, xi, yi)
-				if (p.north) {
-					previousNorthPathLength = pathLength
+				// if we get here, we've either gotten to the end of the current leg or we've found the correct length
+				if (Math.abs(diff) > Math.abs(prevDiff)) { // if we've found the correct length
+					break
 				} else {
-					previousSouthPathLength = pathLength
+					dist0 += Math.sqrt(Math.pow(Xvertices[p.north?0:1][leg]-Xvertices[p.north?0:1][leg+1], 2) + Math.pow(Yvertices[p.north?0:1][leg]-Yvertices[p.north?0:1][leg+1], 2))
 				}
-				// store data with the plane
-				p.diff = diff
-				p.dist0 = dist0
-				p.dist1 = dist1
-				p.dist2 = dist2
-				p.pathLength = pathLength
-				p.desiredPathLength = desiredPathLength
-				// adjust the incoming speeds for spacing
-				if (diff > spacingPrecision) {
-					setSpeed(plane, 400)
-				} else if (diff < -spacingPrecision) {
-					setSpeed(plane, 160)
-				} else {
-					setSpeed(plane, 240)
-				}
-				// stagger the altitudes
-				p.alt = ((p.north?G_objPlanes[northQueue[sequence-1]].alt:G_objPlanes[southQueue[sequence-1]].alt) + 1) % numAltitudeSteps
-				setAltitude(plane, p.alt+6)
 			}
+
+			// if we want to make the path longer, only allow it if it's within 30 degrees of where we're already supposed to be pointing
+			if (leg >= p.lastLeg && spacingStep > p.lastSpacingStep) { // if we're trying to lengthen the path
+				let theta = (Math.atan2(xi-xp, yp-yi) * 180 / Math.PI + 360) % 360
+				let d = new Date()
+				if ((p[5]-theta)%360 > 10 && (p[5]-theta)%360 < 350) { // if the angle is greater than 30 degrees from before
+					// then set the point back to where it was
+					leg = p.lastLeg
+					spacingStep = p.lastSpacingStep
+					// console.log('rejected', p[5], Math.round(theta), plane, leg, p.lastLeg, spacingStep, p.lastSpacingStep)
+					// highlightPoints.push({id:Math.random(), fill:'black', x:xp, y:yp, r:7, timeCreated:d.getTime()})
+					// highlightPoints.push({id:Math.random(), fill:'red', x:xi, y:yi, r:7, timeCreated:d.getTime()})
+					// highlightPoints.push({id:Math.random(), fill:'blue', x:p.lastXi, y:p.lastYi, r:7, timeCreated:d.getTime()})
+					// highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:xi, y2:yi, timeCreated:d.getTime(), stroke:'red'})
+					// highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:p.lastXi, y2:p.lastYi, timeCreated:d.getTime(), stroke:'blue'})
+					xi = p.lastXi
+					yi = p.lastYi
+					dist0 = p.dist0
+					dist1 = p.dist1
+					dist2 = Math.sqrt(Math.pow(xi-xp, 2) + Math.pow(yi-yp, 2))
+					pathLength = dist0 + dist1 + dist2
+					diff = pathLength - desiredPathLength
+				} else {
+					// console.log('accepted', p[5], theta, plane, leg, p.lastLeg, spacingStep, p.lastSpacingStep)
+					// highlightPoints.push({id:Math.random(), fill:'green', x:xp, y:yp, r:5, timeCreated:d.getTime()})
+					// highlightPoints.push({id:Math.random(), fill:'green', x:xi, y:yi, r:5, timeCreated:d.getTime()})
+					// highlightPoints.push({id:Math.random(), fill:'green', x:p.lastXi, y:p.lastYi, r:5, timeCreated:d.getTime()})
+					// highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:xi, y2:yi, timeCreated:d.getTime(), stroke:'black'})
+					// highlightLines.push({id:Math.random(), x1:xp, y1:yp, x2:p.lastXi, y2:p.lastYi, timeCreated:d.getTime(), stroke:'black'})
+				}
+			}
+			p.lastXi = xi
+			p.lastYi = yi
+			p.lastLeg = leg
+			p.lastSpacingStep = spacingStep
+			if (dist2 < 100) { // now that we know where our intersection point should be, move it forward as we get closer to the line itself
+				p.onCourse = true
+				let numPointsAhead = Math.floor((100-dist2) / 5)
+				spacingStep -= numPointsAhead
+				if (spacingStep < 0) { // go around a corner if we need to
+					leg = leg - 1
+					if (leg < 0) {
+						leg = 0
+						spacingStep = 0
+					} else {
+						spacingStep += spacingSteps
+					}
+					Xstep = (Xvertices[p.north?0:1][leg+1] - Xvertices[p.north?0:1][leg]) / spacingSteps
+					Ystep = (Yvertices[p.north?0:1][leg+1] - Yvertices[p.north?0:1][leg]) / spacingSteps
+				}
+				xi = Xvertices[p.north?0:1][leg] + Xstep*spacingStep
+				yi = Yvertices[p.north?0:1][leg] + Ystep*spacingStep
+			}
+			setWaypoint(plane, xi, yi)
+			if (p.north) {
+				previousNorthPathLength = pathLength
+			} else {
+				previousSouthPathLength = pathLength
+			}
+			// store data with the plane
+			p.diff = diff
+			p.dist0 = dist0
+			p.dist1 = dist1
+			p.dist2 = dist2
+			p.pathLength = pathLength
+			p.desiredPathLength = desiredPathLength
+			// adjust the incoming speeds for spacing
+			if (diff > spacingPrecision) {
+				setSpeed(plane, 400)
+			} else if (diff < -spacingPrecision) {
+				setSpeed(plane, 160)
+			} else {
+				setSpeed(plane, 240)
+			}
+			// stagger the altitudes
+			setAltitude(plane, p.alt+6+(p.onCourse?0:numAltitudeSteps))
 		} else if (p.leg == 'downwind') {
 			setNav(plane, p.north?'NORTHDOWNWIND':'SOUTHDOWNWIND')
 			if (p[2]+24 < lineX/2 || p[2]+24 > lineX*1.5) {
 				p.leg = 'final'
 				p.landingAttempts = 0
-				setAltitude(plane, 2)
-				setNav(plane, 'FINAL')
+
 			}
 		} else if (p.leg == 'final') {
+			setAltitude(plane, 2)
+			setNav(plane, 'FINAL')
 			// if we've finished our turn and haven't started our final descent yet, then rey to land
 			if (p[5]==p[8] && p[9]>1999) {
 				routePlane(plane + ' l ' + (p.north?runN:runS))
@@ -570,7 +585,7 @@ spacePlanes = function() {
 				p.leg = 'initialClimb'
 			}
 		} else if (p.leg == 'initialClimb') {
-			setAltitude(plane, initialClearanceAltitude, true)
+			setAltitude(plane, finalClearanceAltitude, true)
 			setNav(plane, 'ABORT')
 			setSpeed(plane, 240)
 			// if we're climbing and have reached clearance altitude, give final climb and waypoint clearance
@@ -578,7 +593,7 @@ spacePlanes = function() {
 				p.leg = 'departure'
 			}
 		} else if (p.leg == 'departure') {
-			setSpeed(plane, 600)
+			setSpeed(plane, 300)
 			setAltitude(plane, finalClearanceAltitude)
 			setNav(plane, G_arrNavObjects[p[13]][0])
 		} else if (p.leg == 'abort') {
@@ -605,6 +620,7 @@ spacePlanes = function() {
 				}
 			}
 			p.alt = 0
+			p.onCourse = false
 			p.leg = 'approach'
 		}
 	})
@@ -725,6 +741,7 @@ abort = function(plane) {
 			southQueue.splice(index, 1)
 		}
 		p.leg = 'abort'
+		p.onCourse = false
 		delete p.sequence
 		delete p.lastLeg
 		delete p.lastSpacingStep
@@ -835,7 +852,7 @@ update = function() {
 		.attr('cx', function(d) { return d.x })
 		.attr('cy', function(d) { return d.y })
 		.attr('r', function(d) { return d.r })
-		.attr('opacity', function(d) { return 1 - (t-d.timeCreated)/10000})
+		.attr('opacity', function(d) { return 1 - (t-d.timeCreated)/5000})
 
 	points.exit().remove()
 
@@ -853,7 +870,7 @@ update = function() {
 		.attr('y1', function(d) { return d.y1 })
 		.attr('x2', function(d) { return d.x2 })
 		.attr('y2', function(d) { return d.y2 })
-		.attr('opacity', function(d) { return 1 - (t-d.timeCreated)/10000})
+		.attr('opacity', function(d) { return 1 - (t-d.timeCreated)/5000})
 
 	lines.exit().remove()
 }
