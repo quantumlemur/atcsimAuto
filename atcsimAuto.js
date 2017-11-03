@@ -3,7 +3,7 @@
 incomingSpacing = 150 // target spacing between planes on approach
 minLandingSpacing = 40 // what's the minimum spacing between us and the plane in front, after landing clearance?
 takingOffPlaneSpeed = 110 // once the plane taking off in front has reached this speed, tell the next plane to start taking off
-planesAtOnce = 200 // minimum number of planes on screen to maintain at any given time
+planesAtOnce = 0 // minimum number of planes on screen to maintain at any given time
 innerPercentage = 0.12 // how far from the middle of the screen (the airport) do we want our waypoints?
 outerPercentage = 0.08 // how far from the outside edge of the screen do we want our waypoints?
 spacingPrecision = 25 // allowable deviation between the approach spacing
@@ -202,17 +202,28 @@ checkFlow = function() {
 	}
 }
 
-setWaypoint = function(plane, x, y) {
+setWaypoint = function(plane, x, y, deconflict=false) {
 	let p = G_objPlanes[plane]
-	if (!!p.waypoint) {
-		p.waypoint[2] = x
-		p.waypoint[3] = y
-	} else {
-		let temp = G_arrNavObjects.push([plane, 2, x, y])
-		p.waypoint = G_arrNavObjects[temp-1]
+	if (!p.conflictCoolDown>0 || deconflict) { // if we're in conflict, only allow an altitude change from the de-conflictizer
+		if (!!p.waypoint) {
+			p.waypoint[2] = x
+			p.waypoint[3] = y
+		} else {
+			let temp = G_arrNavObjects.push([plane, 2, x, y])
+			p.waypoint = G_arrNavObjects[temp-1]
+		}
+		if (p[11] != plane) {
+			routePlane(plane + ' c ' + plane)
+		}
 	}
-	if (p[11] != plane) {
-		routePlane(plane + ' c ' + plane)
+}
+
+setHeading = function(plane, heading, deconflict=false) {
+	let p = G_objPlanes[plane]
+	if (!p.conflictCoolDown>0 || deconflict) { // if we're in conflict, only allow an altitude change from the de-conflictizer
+		if (p[8] != heading) {
+			routePlane(plane + ' c ' + ('000' + heading).substr(-3, 3))
+		}
 	}
 }
 
@@ -247,6 +258,14 @@ for (let i=0; i<Xvertices[0].length; i++) {
 		r: 5,
 		x: Xvertices[0][i],
 		y: Yvertices[0][i],
+		timeCreated: 2509654423636,
+		id: Math.random()
+	})
+		highlightPoints.push({
+		fill: 'black',
+		r: 5,
+		x: Xvertices[1][i],
+		y: Yvertices[1][i],
 		timeCreated: 2509654423636,
 		id: Math.random()
 	})
@@ -291,7 +310,8 @@ checkDepartures = function() {
 			let p = G_objPlanes[planes[i]]
 			if(!p.leg && !p['runway'] && p[16] == 'D') {
 				p.leg = 'waiting'
-				routePlane(planes[i] + ' c 24 c ' + (eastFlow?'090':'270') + ' w')
+				p.takeoffHeading = eastFlow?'090':'270'
+				routePlane(planes[i] + ' c 24 c ' + p.takeoffHeading + ' w')
 				break
 			}
 		}
@@ -319,6 +339,13 @@ deConflict = function() {
 				p1 = G_objPlanes[me]
 				p2 = G_objPlanes[other]
 				if ((Math.sqrt(Math.pow(p1[2]-p2[2], 2) + Math.pow(p1[3]-p2[3], 2)) < 75) && (Math.abs(p1[4]-p2[4]) < 1200)) {
+					// first, turn away from the other guy
+					let xdelta = p1[2] - p2[2]
+					let ydelta = p1[3] - p2[3]
+					xdelta = xdelta / Math.sqrt(Math.pow(xdelta,2) + Math.pow(ydelta,2)) * 100
+					ydelta = ydelta / Math.sqrt(Math.pow(xdelta,2) + Math.pow(ydelta,2)) * 100
+					setWaypoint(me, p1[2]+24+xdelta, p1[3]+62+ydelta, true)
+					// second, move vertically away from the other guy
 					if(p1[4] < p2[4]) {
 						setAltitude(me, Math.floor((p1[4]-1)/1000), true, true)
 						setAltitude(other, Math.ceil((p2[4]+1)/1000), true, true)
@@ -520,6 +547,7 @@ spacePlanes = function() {
 			}
 		} else if (p.leg == 'initialClimb') {
 			setAltitude(plane, initialClearanceAltitude, true)
+			setHeading(plane, p.takeoffHeading)
 			// if we're climbing and have reached clearance altitude, give final climb and waypoint clearance
 			if (p[4] >= initialClearanceAltitude*1000) {
 				p.leg = 'departure'
@@ -709,7 +737,7 @@ update = function() {
 		.attr('x1', function(d) { return 0 })
 		.attr('y1', function(d) { return 0 })
 		.attr('x2', function(d) {
-			if (d[16]=='A' ) {
+			if (true) { //d[16]=='A' ) {
 				for (let i=0; i<G_arrNavObjects.length; i++) {
 					if (G_arrNavObjects[i][0] == d[11]) {
 						return G_arrNavObjects[i][2] - d[2]-24
@@ -719,7 +747,7 @@ update = function() {
 			return 0
 		})
 		.attr('y2', function(d) {
-			if (d[16]=='A' ) {
+			if (true) { // d[16]=='A' ) {
 				for (let i=0; i<G_arrNavObjects.length; i++) {
 					if (G_arrNavObjects[i][0] == d[11]) {
 						return G_arrNavObjects[i][3] - d[3]-62
