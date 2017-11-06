@@ -2,7 +2,7 @@
 
 innerPercentage = 0.15 // how far from the middle of the screen (the airport) do we want our waypoints?
 outerPercentage = 0.1 // how far from the outside edge of the screen do we want our waypoints?
-planesAtOnce = 70 // minimum number of planes on screen to maintain at any given time
+planesAtOnce = 0 // minimum number of planes on screen to maintain at any given time
 
 simulationStepTime = 100 // time in ms between each simulation step.  Default is 1000
 
@@ -430,7 +430,16 @@ spacePlanes = function() {
 	}
 
 
+	if (northQueue.length>0 && G_objPlanes[northQueue[0]].leg != 'approach') {
+		northQueue.splice(0, 1)
+	}
+	if (southQueue.length>0 && G_objPlanes[southQueue[0]].leg != 'approach') {
+		southQueue.splice(0, 1)
+	}
+
+
 	planes.forEach(function(plane) {
+		let p = G_objPlanes[plane]
 		let d = new Date()
 		let t = d.getTime()
 		if (highlightPoints.length>0 && t - highlightPoints[0].timeCreated > 5*1000) {
@@ -440,11 +449,10 @@ spacePlanes = function() {
 			highlightLines.splice(0,1)
 		}
 
-
-		let p = G_objPlanes[plane]
 		if (p.leg == 'approach') {
 			let sequence = p.north ? northQueue.indexOf(plane) : southQueue.indexOf(plane)
 			let desiredPathLength = 0
+			let numPointsAhead = 0
 			p.sequence = sequence
 			// first find the length of the downwind leg
 			if (sequence == 0) {
@@ -463,6 +471,41 @@ spacePlanes = function() {
 			} else {
 				p.alt = ((p.north?G_objPlanes[northQueue[sequence-1]].alt:G_objPlanes[southQueue[sequence-1]].alt) + 1) % numAltitudeSteps
 				desiredPathLength = incomingSpacing*sequence + (p.north?G_objPlanes[northQueue[0]].pathLength:G_objPlanes[southQueue[0]].pathLength)
+
+				let minDist1 = 9999999
+				let minDist2 = 9999999
+				if (p.lastLeg != undefined) {
+					// first the current leg
+					let Xstep = (Xvertices[p.north?0:1][p.lastLeg+1] - Xvertices[p.north?0:1][p.lastLeg]) / spacingSteps
+					let Ystep = (Yvertices[p.north?0:1][p.lastLeg+1] - Yvertices[p.north?0:1][p.lastLeg]) / spacingSteps
+					for (let i=0; i<spacingSteps; i++) {
+						let xi = Xvertices[p.north?0:1][p.lastLeg] + Xstep*i
+						let yi = Yvertices[p.north?0:1][p.lastLeg] + Ystep*i
+						let dist = Math.sqrt(Math.pow(xi-(p[2]+24), 2) + Math.pow(yi-(p[3]+63), 2))
+						if (dist > minDist1) {
+							break
+						}
+						minDist1 = dist
+					}
+					// then the previous leg
+					Xstep = (Xvertices[p.north?0:1][p.lastLeg+1+1] - Xvertices[p.north?0:1][p.lastLeg+1]) / spacingSteps
+					Ystep = (Yvertices[p.north?0:1][p.lastLeg+1+1] - Yvertices[p.north?0:1][p.lastLeg+1]) / spacingSteps
+					for (let i=0; i<spacingSteps; i++) {
+						let xi = Xvertices[p.north?0:1][p.lastLeg+1] + Xstep*i
+						let yi = Yvertices[p.north?0:1][p.lastLeg+1] + Ystep*i
+						let dist = Math.sqrt(Math.pow(xi-(p[2]+24), 2) + Math.pow(yi-(p[3]+63), 2))
+						if (dist > minDist2) {
+							break
+						}
+						minDist2 = dist
+					}
+					let minDist = Math.min(minDist1, minDist2)
+					if (minDist < 100) {
+						numPointsAhead = Math.max(Math.floor((90-minDist) / 5), 0)
+						p.onCourse = true
+					}
+					p.minDist = minDist
+				}
 			}
 			let xp = p[2] + 24 // plane X
 			let yp = p[3] + 62 // plane Y
@@ -536,24 +579,20 @@ spacePlanes = function() {
 			p.lastYi = yi
 			p.lastLeg = leg
 			p.lastSpacingStep = spacingStep
-			if (dist2 < 100) { // now that we know where our intersection point should be, move it forward as we get closer to the line itself
-				p.onCourse = true
-				let numPointsAhead = Math.max(Math.floor((90-dist2) / 5), 0)
-				spacingStep -= numPointsAhead
-				if (spacingStep < 0) { // go around a corner if we need to
-					leg = leg - 1
-					if (leg < 0) {
-						leg = 0
-						spacingStep = 0
-					} else {
-						spacingStep += spacingSteps
-					}
-					Xstep = (Xvertices[p.north?0:1][leg+1] - Xvertices[p.north?0:1][leg]) / spacingSteps
-					Ystep = (Yvertices[p.north?0:1][leg+1] - Yvertices[p.north?0:1][leg]) / spacingSteps
+			spacingStep -= numPointsAhead
+			if (spacingStep < 0) { // go around a corner if we need to
+				leg = leg - 1
+				if (leg < 0) {
+					leg = 0
+					spacingStep = 0
+				} else {
+					spacingStep += spacingSteps
 				}
-				xi = Xvertices[p.north?0:1][leg] + Xstep*spacingStep
-				yi = Yvertices[p.north?0:1][leg] + Ystep*spacingStep
+				Xstep = (Xvertices[p.north?0:1][leg+1] - Xvertices[p.north?0:1][leg]) / spacingSteps
+				Ystep = (Yvertices[p.north?0:1][leg+1] - Yvertices[p.north?0:1][leg]) / spacingSteps
 			}
+			xi = Xvertices[p.north?0:1][leg] + Xstep*spacingStep
+			yi = Yvertices[p.north?0:1][leg] + Ystep*spacingStep
 			setWaypoint(plane, xi, yi)
 			if (p.north) {
 				previousNorthPathLength = pathLength
@@ -826,7 +865,7 @@ update = function() {
 			return 0
 		})
 	planes.selectAll('text')
-		.text(function(d) { return d.sequence>-1 ? d.sequence : '' }) // + ' | path: ' + Math.round(d.pathLength) + ' | des: ' + Math.round(d.desiredPathLength) + ' | dist2: ' + Math.round(d.dist2) : '' }) // + ' | dist0: ' + Math.round(d.dist0) + ' | dist1: ' + Math.round(d.dist1) + ' | dist2: ' + Math.round(d.dist2): '' })
+		.text(function(d) { return d.sequence>-1 ? d.sequence + ' | minDist: ' + Math.round(d.minDist) : '' }) // + ' | path: ' + Math.round(d.pathLength) + ' | des: ' + Math.round(d.desiredPathLength) + ' | dist2: ' + Math.round(d.dist2) : '' }) // + ' | dist0: ' + Math.round(d.dist0) + ' | dist1: ' + Math.round(d.dist1) + ' | dist2: ' + Math.round(d.dist2): '' })
 
 	// create new objects
 	planes.enter()
@@ -904,6 +943,6 @@ addPlaneInterval = setInterval(function() { if (intPlanesOnScreen < planesAtOnce
 flowInterval = setInterval(checkFlow, 10000)
 conflictInterval = setInterval(deConflict, 100)
 departureInterval = setInterval(checkDepartures, 100)
-spaceInterval = setInterval(spacePlanes, 300)
-updateInterval = setInterval(update, 100)
+spaceInterval = setInterval(spacePlanes, 100)
+updateInterval = setInterval(update, 500)
 intervalID = setInterval("fnMoveIt()", simulationStepTime);
