@@ -273,6 +273,7 @@ setWaypoint = function(plane, x, y, deconflict=true) {
 
 setHeading = function(plane, heading, deconflict=true) {
 	let p = G_objPlanes[plane]
+	heading = Math.round(heading)
 	if (!p.conflictCoolDown>0 || deconflict) { // if we're in conflict, only allow an altitude change from the de-conflictizer
 		if (p[8] != heading) {
 			routePlane(plane + ' c ' + ('000' + heading).substr(-3, 3))
@@ -593,7 +594,11 @@ spacePlanes = function() {
 			}
 			xi = Xvertices[p.north?0:1][leg] + Xstep*spacingStep
 			yi = Yvertices[p.north?0:1][leg] + Ystep*spacingStep
-			setWaypoint(plane, xi, yi)
+			p.xi = xi
+			p.yi = yi
+			p.theta = (Math.atan2(xi-xp, yp-yi) * 180 / Math.PI + 360) % 360
+			setHeading(plane, p.theta)
+			// setWaypoint(plane, xi, yi)
 			if (p.north) {
 				previousNorthPathLength = pathLength
 			} else {
@@ -608,14 +613,14 @@ spacePlanes = function() {
 			p.desiredPathLength = desiredPathLength
 			// adjust the incoming speeds for spacing
 			if (diff > spacingPrecision) {
-				setSpeed(plane, 400)
+				setSpeed(plane, 240)
 			} else if (diff < -spacingPrecision) {
 				setSpeed(plane, 160)
 			} else {
 				setSpeed(plane, 240)
 			}
 			// stagger the altitudes
-			setAltitude(plane, p.alt+6+(p.onCourse?0:numAltitudeSteps))
+			setAltitude(plane, p.alt+6+(p.onCourse?0:numAltitudeSteps), !p.onCourse)
 		} else if (p.leg == 'downwind') {
 			setNav(plane, p.north?'NORTHDOWNWIND':'SOUTHDOWNWIND')
 			if (p[2]+24 < lineX/2 || p[2]+24 > lineX*1.5) {
@@ -851,6 +856,9 @@ update = function() {
 						return G_arrNavObjects[i][2] - d[2]-24
 					}
 				}
+				if (!!d.xi) {
+					return d.xi - d[2]-24
+				}
 			}
 			return 0
 		})
@@ -861,11 +869,14 @@ update = function() {
 						return G_arrNavObjects[i][3] - d[3]-62
 					}
 				}
+				if (!!d.yi) {
+					return d.yi - d[3]-62
+				}
 			}
 			return 0
 		})
 	planes.selectAll('text')
-		.text(function(d) { return d.sequence>-1 ? d.sequence + ' | minDist: ' + Math.round(d.minDist) : '' }) // + ' | path: ' + Math.round(d.pathLength) + ' | des: ' + Math.round(d.desiredPathLength) + ' | dist2: ' + Math.round(d.dist2) : '' }) // + ' | dist0: ' + Math.round(d.dist0) + ' | dist1: ' + Math.round(d.dist1) + ' | dist2: ' + Math.round(d.dist2): '' })
+		.text(function(d) { return d.sequence>-1 ? d.sequence + ' | theta: ' + Math.round(d.theta) : '' }) // + ' | path: ' + Math.round(d.pathLength) + ' | des: ' + Math.round(d.desiredPathLength) + ' | dist2: ' + Math.round(d.dist2) : '' }) // + ' | dist0: ' + Math.round(d.dist0) + ' | dist1: ' + Math.round(d.dist1) + ' | dist2: ' + Math.round(d.dist2): '' })
 
 	// create new objects
 	planes.enter()
