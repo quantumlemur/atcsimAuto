@@ -44,11 +44,11 @@ if (document.title == 'Atlanta Hartsfield-Jackson Intl.') {
 	runwaySE = '7R'
 	runwayNW = '26'
 	runwaySW = '25L'
-} else if (document.title == 'Dubai (United Arab Emirates) Intl.') {
-	runwayNE = '12L'
-	runwaySE = '12R'
-	runwayNW = '30R'
-	runwaySW = '30L'
+} else if (document.title == 'Kobe Airport') {
+	runwayNE = '9'
+	runwaySE = '9'
+	runwayNW = '27'
+	runwaySW = '27'
 } 
 
 
@@ -705,6 +705,10 @@ spacePlanes = function() {
 				if (p.north == undefined) {
 					p.north = p[3]+62 < midY
 				}
+				// if we only have one runway anyway
+				if (runN == runS) {
+					p.north = true
+				}
 				if (northQueue.indexOf(plane) == -1 && southQueue.indexOf(plane) == -1) {
 					if (p.north) {
 						northQueue.push(plane)
@@ -737,7 +741,7 @@ spacePlanes = function() {
 
 	// monitor the queues, and if one is overflowing and the other isn't, then switch a plane
 	let queueDiff = northQueue.length - southQueue.length
-	if (Math.abs(queueDiff) > 5) {
+	if (Math.abs(queueDiff) > 5 && runN!=runS) {
 		if (northQueue.length > southQueue.length) {
 			abort(northQueue[northQueue.length - 1])
 		} else {
