@@ -2,12 +2,12 @@
 
 innerPercentage = 0.15 // how far from the middle of the screen (the airport) do we want our waypoints?
 outerPercentage = 0.1 // how far from the outside edge of the screen do we want our waypoints?
-planesAtOnce = 0 // minimum number of planes on screen to maintain at any given time
+planesAtOnce = 50 // minimum number of planes on screen to maintain at any given time
 
 simulationStepTime = 100 // time in ms between each simulation step.  Default is 1000
 
 incomingSpacing = 150 // target spacing between planes on approach
-minLandingSpacing = 30 // what's the minimum spacing between us and the plane in front, after landing clearance?
+minLandingSpacing = 30 // what's the minimum spacing between us and the plane in front, on final approach after landing clearance?
 takingOffPlaneSpeed = 130 // once the plane taking off in front has reached this speed, tell the next plane to start taking off
 spacingPrecision = 25 // allowable deviation between the approach spacing
 spacingSteps = 100 // number of steps on each leg to evaluate the spacing computation
@@ -18,6 +18,7 @@ finalClearanceAltitude = 20 // final altitude for departing aircraft to climb to
 abortAltitude = 12 // how high to climb in abort?
 conflictCoolDownTime = 5 // time in seconds to disallow normal altitude or heading commands after a conflict
 numAltitudeSteps = 6 // number of discrete altitude steps on the approach path
+minLandingGap = 165 // how far away does the nearest plane on final have to be, in order to allow a takeoff from that runway?
 
 
 
@@ -38,7 +39,17 @@ if (document.title == 'Atlanta Hartsfield-Jackson Intl.') {
 	runwaySE = '10R'
 	runwayNW = '27R'
 	runwaySW = '28L'
-}
+} else if (document.title == 'Phoenix AZ (USA) Sky Harbor Intl.') {
+	runwayNE = '8'
+	runwaySE = '7R'
+	runwayNW = '26'
+	runwaySW = '25L'
+} else if (document.title == 'Dubai (United Arab Emirates) Intl.') {
+	runwayNE = '12L'
+	runwaySE = '12R'
+	runwayNW = '30R'
+	runwaySW = '30L'
+} 
 
 
 function dynamicallyLoadScript(url) {
@@ -70,6 +81,7 @@ southDownwindMaxAlt = 0
 northQueue = []
 southQueue = []
 navcoords = {}
+runwayQueues = {}
 eastFlow = intWind < 180
 
 waypointIndexes = [-1, -1, -1, -1]
@@ -342,10 +354,17 @@ checkDepartures = function() {
 		for (let i=0; i<planes.length; i++) {
 			let p = G_objPlanes[planes[i]]
 			if(!p.leg && !p['runway'] && p[16] == 'D') {
-				p.leg = 'waiting'
-				p.takeoffHeading = eastFlow?'090':'270'
-				routePlane(planes[i] + ' c 24 c ' + p.takeoffHeading + ' w')
-				break
+				// only allow the takeoff if we have a gap in the landing planes
+				let runway = G_arrNavObjects[p[12]][0]
+				if (runwayQueues[runway] && runwayQueues[runway].length != 0) {
+					console.log(runway, runwayQueues[runway][0].plane, runwayQueues[runway][0].dist)
+				}
+				if (!runwayQueues[runway] || runwayQueues[runway].length==0 || runwayQueues[runway][0].dist > minLandingGap) {
+					p.leg = 'waiting'
+					p.takeoffHeading = eastFlow?'090':'270'
+					routePlane(planes[i] + ' c 24 c ' + p.takeoffHeading + ' w')
+					break
+				}
 			}
 		}
 	}
@@ -455,6 +474,10 @@ spacePlanes = function() {
 			let desiredPathLength = 0
 			let numPointsAhead = 0
 			p.sequence = sequence
+			// take out our gap if our gapped plane has taken off
+			if (!G_objPlanes[p.gap] || G_objPlanes[p.gap][4] > intFieldElev) {
+				p.gap = false
+			}
 			// first find the length of the downwind leg
 			if (sequence == 0) {
 				let dist = Math.sqrt(Math.pow(Xvertices[p.north?0:1][0]-(p[2]+24), 2) + Math.pow(Yvertices[p.north?0:1][0]-(p[3]+62), 2))
@@ -471,7 +494,7 @@ spacePlanes = function() {
 				desiredPathLength = dist
 			} else {
 				p.alt = ((p.north?G_objPlanes[northQueue[sequence-1]].alt:G_objPlanes[southQueue[sequence-1]].alt) + 1) % numAltitudeSteps
-				desiredPathLength = incomingSpacing*sequence + (p.north?G_objPlanes[northQueue[0]].pathLength:G_objPlanes[southQueue[0]].pathLength)
+				desiredPathLength = incomingSpacing*(p.gap?3:1) + (p.north?G_objPlanes[northQueue[sequence-1]].desiredPathLength:G_objPlanes[southQueue[sequence-1]].desiredPathLength)
 
 				let minDist1 = 9999999
 				let minDist2 = 9999999
@@ -550,7 +573,7 @@ spacePlanes = function() {
 			if (leg >= p.lastLeg && spacingStep > p.lastSpacingStep) { // if we're trying to lengthen the path
 				let theta = (Math.atan2(xi-xp, yp-yi) * 180 / Math.PI + 360) % 360
 				let d = new Date()
-				if ((p[5]-theta)%360 > 10 && (p[5]-theta)%360 < 350) { // if the angle is greater than 30 degrees from before
+				if ((p[5]-theta)%360 > 20 && (p[5]-theta)%360 < 340) { // if the angle is greater than 30 degrees from before
 					// then set the point back to where it was
 					leg = p.lastLeg
 					spacingStep = p.lastSpacingStep
@@ -623,6 +646,10 @@ spacePlanes = function() {
 			setAltitude(plane, p.alt+6+(p.onCourse?0:numAltitudeSteps), !p.onCourse)
 		} else if (p.leg == 'downwind') {
 			setNav(plane, p.north?'NORTHDOWNWIND':'SOUTHDOWNWIND')
+			// take out our gap if our gapped plane has taken off
+			if (!G_objPlanes[p.gap] || G_objPlanes[p.gap][4] > intFieldElev) {
+				p.gap = false
+			}
 			if (p[2]+24 < lineX/2 || p[2]+24 > lineX*1.5) {
 				p.leg = 'final'
 			}
@@ -647,7 +674,7 @@ spacePlanes = function() {
 				p.leg = 'departure'
 			}
 		} else if (p.leg == 'departure') {
-			setSpeed(plane, 300)
+			setSpeed(plane, 240)
 			setAltitude(plane, finalClearanceAltitude)
 			setNav(plane, G_arrNavObjects[p[13]][0])
 		} else if (p.leg == 'abort') {
@@ -656,7 +683,7 @@ spacePlanes = function() {
 			}
 			setHeading(plane, p.north?'280':'260')
 			setSpeed(plane, 240)
-			setAltitude(plane, abortAltitude + 5)
+			setAltitude(plane, abortAltitude + 5, true)
 			if (p[4] >= abortAltitude*1000) {
 				delete p.leg
 			}
@@ -672,36 +699,49 @@ spacePlanes = function() {
 			if (p[12] == null) { // if the plane has made itself go around
 				abort(plane)
 			}
-		} else if (!p.leg && p[16]=='A') { // if don't have a leg assigned but we're an arrival (haven't been routed), then insert us into the approach sequence
-			// if we're north of the final waypoint
-			if (p.north == undefined) {
-				p.north = p[3]+62 < midY
-			}
-			if (northQueue.indexOf(plane) == -1 && southQueue.indexOf(plane) == -1) {
-				if (p.north) {
-					northQueue.push(plane)
-				} else {
-					southQueue.push(plane)
+		} else if (!p.leg) {
+			if (p[16]=='A') { // if don't have a leg assigned but we're an arrival (haven't been routed), then insert us into the approach sequence
+				// if we're north of the final waypoint
+				if (p.north == undefined) {
+					p.north = p[3]+62 < midY
+				}
+				if (northQueue.indexOf(plane) == -1 && southQueue.indexOf(plane) == -1) {
+					if (p.north) {
+						northQueue.push(plane)
+					} else {
+						southQueue.push(plane)
+					}
+				}
+				p.alt = 0
+				p.onCourse = false
+				p.leg = 'approach'
+			} else if (p[16]=='D') {
+				// if we're a new departure, make space for us in the arrival sequence
+				if (!p.gapped) {
+					if (G_arrNavObjects[p[12]][0] == runN) {
+						if (northQueue.length>0 && !G_objPlanes[northQueue[northQueue.length-1]].gap) {
+							G_objPlanes[northQueue[northQueue.length-1]].gap = plane
+							p.gapped = true
+						}
+					} else if (G_arrNavObjects[p[12]][0] == runS) {
+						if (southQueue.length>0 && !G_objPlanes[southQueue[southQueue.length-1]].gap) {
+							G_objPlanes[southQueue[southQueue.length-1]].gap = plane
+							p.gapped = true
+						}
+					}
 				}
 			}
-			p.alt = 0
-			p.onCourse = false
-			p.leg = 'approach'
 		}
 	})
 
 
 	// monitor the queues, and if one is overflowing and the other isn't, then switch a plane
-	if (northQueue.length > 0 && southQueue.length > 0) {
-		let lastNorth = northQueue[northQueue.length - 1]
-		let pN = G_objPlanes[lastNorth]
-		let lastSouth = southQueue[southQueue.length - 1]
-		let pS = G_objPlanes[lastSouth]
-		if (pN[10] == 160 && pS[10] != 160) {
-			abort(lastNorth)
-		}
-		if (pS[10] == 160 && pN[10] != 160) {
-			abort(lastSouth)
+	let queueDiff = northQueue.length - southQueue.length
+	if (Math.abs(queueDiff) > 5) {
+		if (northQueue.length > southQueue.length) {
+			abort(northQueue[northQueue.length - 1])
+		} else {
+			abort(southQueue[southQueue.length - 1])
 		}
 	}
 
@@ -729,7 +769,7 @@ spacePlanes = function() {
 
 		for (let i=0; i<queue.length; i++) {
 			let p = queue[i]
-			let desired = i*incomingSpacing
+			let desired = (i+(G_objPlanes[p.plane].gap?1:0))*incomingSpacing
 			let diff = p.dist - queue[0].dist - desired
 			G_objPlanes[p.plane].sequence = i
 			G_objPlanes[p.plane].pathLength = p.dist
@@ -776,12 +816,15 @@ spacePlanes = function() {
 			return a.dist - b.dist
 		})
 
+		runwayQueues[waypoint] = queue
+
 		// console.log(waypoint, queue)
 		for (let i=1; i<queue.length; i++) {
 			let p = queue[i]
 			let diff = p.dist - queue[i-1].dist
 			G_objPlanes[p.plane].sequence = i
 			G_objPlanes[p.plane].diff = diff
+			G_objPlanes[p.plane].dist = p.dist
 			// abort landing if too close to the plane in front
 			if (diff < minLandingSpacing) {
 				abort(p.plane)
@@ -790,7 +833,6 @@ spacePlanes = function() {
 		}
 	}
 }
-
 
 
 abort = function(plane) {
@@ -876,7 +918,7 @@ update = function() {
 			return 0
 		})
 	planes.selectAll('text')
-		.text(function(d) { return d.sequence>-1 ? d.sequence + ' | theta: ' + Math.round(d.theta) : '' }) // + ' | path: ' + Math.round(d.pathLength) + ' | des: ' + Math.round(d.desiredPathLength) + ' | dist2: ' + Math.round(d.dist2) : '' }) // + ' | dist0: ' + Math.round(d.dist0) + ' | dist1: ' + Math.round(d.dist1) + ' | dist2: ' + Math.round(d.dist2): '' })
+		.text(function(d) { return d.sequence>-1 ? d.sequence + ' | gap: ' + d.gap + ' | path: ' + Math.round(d.pathLength) + ' | des: ' + Math.round(d.desiredPathLength) : '' }) // + ' | dist0: ' + Math.round(d.dist0) + ' | dist1: ' + Math.round(d.dist1) + ' | dist2: ' + Math.round(d.dist2): '' })
 
 	// create new objects
 	planes.enter()
