@@ -2,9 +2,9 @@
 
 innerPercentage = 0.15 // how far from the middle of the screen (the airport) do we want our waypoints?
 outerPercentage = 0.1 // how far from the outside edge of the screen do we want our waypoints?
-planesAtOnce = 100 // minimum number of planes on screen to maintain at any given time
+planesAtOnce = 10 // minimum number of planes on screen to maintain at any given time
 
-simulationStepTime = 100 // time in ms between each simulation step.  Default is 1000
+simulationStepTime = 50 // time in ms between each simulation step.  Default is 1000
 
 incomingSpacing = 150 // target spacing between planes on approach
 minLandingSpacing = 30 // what's the minimum spacing between us and the plane in front, on final approach after landing clearance?
@@ -12,7 +12,7 @@ takingOffPlaneSpeed = 130 // once the plane taking off in front has reached this
 spacingPrecision = 25 // allowable deviation between the approach spacing
 spacingSteps = 100 // number of steps on each leg to evaluate the spacing computation
 waypointPrecision = 50 // how far away from each waypoint should we consider the plane to have arrived?
-maxLandingAttempts = 100 // how many times should we try to land before we give up and put the plane back in sequence?
+maxLandingAttempts = 50 // how many times should we try to land before we give up and put the plane back in sequence?
 initialClearanceAltitude = 10 // altitude to expedite climb after takeoff, in thousands of feet
 finalClearanceAltitude = 20 // final altitude for departing aircraft to climb to, in thousands of feet
 abortAltitude = 12 // how high to climb in abort?
@@ -270,7 +270,7 @@ calcLines()
 
 
 routePlane = function(routing) {
-	console.log(routing)
+	// console.log(routing)
 	document.getElementsByName('txtClearance')[0].value = routing
 	fnParseInput()
 }
@@ -619,7 +619,7 @@ spacePlanes = function() {
 			if (leg >= p.lastLeg && spacingStep > p.lastSpacingStep) { // if we're trying to lengthen the path
 				let theta = (Math.atan2(xi-xp, yp-yi) * 180 / Math.PI + 360) % 360
 				let d = new Date()
-				if ((p[5]-theta)%360 > 20 && (p[5]-theta)%360 < 340) { // if the angle is greater than 30 degrees from before
+				if ((p[5]-theta)%360 > 30 && (p[5]-theta)%360 < 330) { // if the angle is greater than 30 degrees from before
 					// then set the point back to where it was
 					leg = p.lastLeg
 					spacingStep = p.lastSpacingStep
@@ -1052,5 +1052,5 @@ flowInterval = setInterval(checkFlow, 10000)
 conflictInterval = setInterval(deConflict, 100)
 departureInterval = setInterval(checkDepartures, 300)
 spaceInterval = setInterval(spacePlanes, 100)
-updateInterval = setInterval(update, 500)
+updateInterval = setInterval(update, 100)
 intervalID = setInterval("fnMoveIt()", simulationStepTime);
